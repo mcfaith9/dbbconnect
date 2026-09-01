@@ -1,0 +1,154 @@
+import { storage } from './storage'
+import type { Document, DocumentType, UserRole } from '@/types'
+
+function formatBytes(bytes: number, decimals = 1): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
+}
+
+function detectDocumentType(fileName: string, mimeType?: string): DocumentType {
+  const ext = fileName.split('.').pop()?.toLowerCase() || ''
+  if (ext === 'pdf' || mimeType === 'application/pdf') return 'pdf'
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext) || mimeType?.startsWith('image/')) return 'image'
+  if (['doc', 'docx'].includes(ext)) return 'word'
+  if (['xls', 'xlsx', 'csv'].includes(ext)) return 'excel'
+  if (['ppt', 'pptx'].includes(ext)) return 'powerpoint'
+  return 'other'
+}
+
+export const DocumentService = {
+  async getAllDocuments(): Promise<Document[]> {
+    return await storage.getAll<Document>(storage.STORES.DOCUMENTS)
+  },
+
+  async getDocumentsByOwner(ownerId: string): Promise<Document[]> {
+    const all = await this.getAllDocuments()
+    return all.filter((d) => d.ownerId === ownerId)
+  },
+
+  async getDocumentsByFolder(folderId: string | null, ownerId: string): Promise<Document[]> {
+    const docs = await this.getDocumentsByOwner(ownerId)
+    return docs.filter((d) => (folderId ? d.folderId === folderId : d.folderId === null))
+  },
+
+  async getAssignedDocumentsForEmployee(employeeId: string): Promise<Document[]> {
+    const all = await this.getAllDocuments()
+    return all.filter((d) => {
+      // Owned by employee OR explicitly assigned to employee OR company shared
+      return d.ownerId === employeeId || d.assignedTo?.includes(employeeId) || d.isShared || d.ownerId === 'shared'
+    })
+  },
+
+  async getDocumentById(id: string): Promise<Document | null> {
+    return await storage.getById<Document>(storage.STORES.DOCUMENTS, id)
+  },
+
+  async uploadDocument(params: {
+    name: string
+    originalName?: string
+    file?: File
+    mimeType?: string
+    size?: number
+    folderId: string | null
+    ownerId: string // employee id or 'shared'
+    uploadedBy: { id: string; name: string; role: UserRole }
+    assignedTo?: string[]
+    previewUrl?: string
+    textContent?: string
+    tags?: string[]
+  }): Promise<Document> {
+    const fileName = params.name.trim()
+    const docType = detectDocumentType(fileName, params.mimeType || params.file?.type)
+    const size = params.size || params.file?.size || Math.floor(Math.random() * 2000000) + 500000
+    
+    // Auto-assign: if uploaded to an employee, automatically include that employee in assignedTo
+    const assigned = new Set<string>(params.assignedTo || [])
+    if (params.ownerId !== 'shared') {
+      assigned.add(params.ownerId)
+    }
+
+    const newDoc: Document = {
+      id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      name: fileName,
+      originalName: params.originalName || fileName,
+      mimeType: params.mimeType || params.file?.type || (docType === 'pdf' ? 'application/pdf' : 'application/octet-stream'),
+      type: docType,
+      size,
+      sizeFormatted: formatBytes(size),
+      folderId: params.folderId,
+      ownerId: params.ownerId,
+      uploadedBy: params.uploadedBy,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      version: 'v1.0',
+      isShared: params.ownerId === 'shared',
+      assignedTo: Array.from(assigned),
+      tags: params.tags || (docType === 'image' ? ['Site Photo'] : ['Field Document']),
+      offlineCached: false,
+      previewUrl: params.previewUrl,
+      thumbnailUrl: docType === 'image' ? (params.previewUrl || 'https://images.unsplash.com/photo-1541888946425-d0fbb180c5f5?w=800&auto=format&fit=crop&q=80') : undefined,
+      textContent: params.textContent || `Digital Document: ${fileName}\nUploaded by: ${params.uploadedBy.name}\nTimestamp: ${new Date().toLocaleString()}`,
+      pageCount: docType === 'pdf' ? Math.floor(Math.random() * 8) + 1 : undefined,
+    }
+
+    return await storage.put<Document>(storage.STORES.DOCUMENTS, newDoc)
+  },
+
+  async renameDocument(id: string, newName: string): Promise<Document | null> {
+    const doc = await this.getDocumentById(id)
+    if (!doc) return null
+    doc.name = newName.trim()
+    doc.updatedAt = new Date().toISOString()
+    return await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+  },
+
+  async moveDocument(id: string, targetFolderId: string | null): Promise<Document | null> {
+    const doc = await this.getDocumentById(id)
+    if (!doc) return null
+    doc.folderId = targetFolderId
+    doc.updatedAt = new Date().toISOString()
+    return await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+  },
+
+  async deleteDocument(id: string): Promise<void> {
+    await storage.delete(storage.STORES.DOCUMENTS, id)
+  },
+
+  async toggleOfflineCache(id: string, shouldCache: boolean): Promise<Document | null> {
+    const doc = await this.getDocumentById(id)
+    if (!doc) return null
+    doc.offlineCached = shouldCache
+    doc.offlineCachedAt = shouldCache ? new Date().toISOString() : undefined
+    return await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+  },
+
+  async getOfflineCachedDocuments(employeeId?: string): Promise<Document[]> {
+    const all = await this.getAllDocuments()
+    return all.filter((d) => {
+      const isCached = d.offlineCached === true
+      if (!employeeId) return isCached
+      return isCached && (d.ownerId === employeeId || d.assignedTo?.includes(employeeId) || d.isShared)
+    })
+  },
+
+  async searchDocuments(query: string, ownerId?: string): Promise<Document[]> {
+    const cleanQ = query.toLowerCase().trim()
+    if (!cleanQ) return []
+    const all = await this.getAllDocuments()
+    return all.filter((d) => {
+      if (ownerId && d.ownerId !== ownerId && !d.assignedTo?.includes(ownerId) && !d.isShared) {
+        return false
+      }
+      return (
+        d.name.toLowerCase().includes(cleanQ) ||
+        d.originalName.toLowerCase().includes(cleanQ) ||
+        d.tags?.some((t) => t.toLowerCase().includes(cleanQ)) ||
+        d.textContent?.toLowerCase().includes(cleanQ)
+      )
+    })
+  },
+}

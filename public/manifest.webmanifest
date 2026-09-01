@@ -1,0 +1,16 @@
+{
+  "name": "DBB FieldHub",
+  "short_name": "FieldHub",
+  "description": "Digital Field File Management PWA for Field Employees and Office Admins",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#18181b",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

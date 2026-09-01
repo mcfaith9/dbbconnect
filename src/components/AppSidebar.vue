@@ -1,251 +1,210 @@
 <script setup lang="ts">
-import type { SidebarProps } from '@/components/ui/sidebar'
-import { ArchiveX, Command, File, Inbox, Send, Trash2 } from "@lucide/vue"
-import { h, ref } from "vue"
-import NavUser from '@/components/NavUser.vue'
-import { Label } from '@/components/ui/label'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  LayoutDashboard,
+  Users,
+  FolderTree,
+  MessageSquare,
+  History,
+  Settings,
+  User,
+  FolderSync,
+} from '@lucide/vue'
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
-  SidebarInput,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
+  SidebarRail,
 } from '@/components/ui/sidebar'
-import { Switch } from '@/components/ui/switch'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useAuth } from '@/composables/useAuth'
 
-const props = withDefaults(defineProps<SidebarProps>(), {
-  collapsible: "icon",
-})
+const route = useRoute()
+const router = useRouter()
+const { currentUser, isAdmin } = useAuth()
 
-// This is sample data
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    {
-      title: "Inbox",
-      url: "#",
-      icon: Inbox,
-      isActive: true,
-    },
-    {
-      title: "Drafts",
-      url: "#",
-      icon: File,
-      isActive: false,
-    },
-    {
-      title: "Sent",
-      url: "#",
-      icon: Send,
-      isActive: false,
-    },
-    {
-      title: "Junk",
-      url: "#",
-      icon: ArchiveX,
-      isActive: false,
-    },
-    {
-      title: "Trash",
-      url: "#",
-      icon: Trash2,
-      isActive: false,
-    },
-  ],
-  mails: [
-    {
-      name: "William Smith",
-      email: "williamsmith@example.com",
-      subject: "Meeting Tomorrow",
-      date: "09:34 AM",
-      teaser:
-        "Hi team, just a reminder about our meeting tomorrow at 10 AM.\nPlease come prepared with your project updates.",
-    },
-    {
-      name: "Alice Smith",
-      email: "alicesmith@example.com",
-      subject: "Re: Project Update",
-      date: "Yesterday",
-      teaser:
-        "Thanks for the update. The progress looks great so far.\nLet's schedule a call to discuss the next steps.",
-    },
-    {
-      name: "Bob Johnson",
-      email: "bobjohnson@example.com",
-      subject: "Weekend Plans",
-      date: "2 days ago",
-      teaser:
-        "Hey everyone! I'm thinking of organizing a team outing this weekend.\nWould you be interested in a hiking trip or a beach day?",
-    },
-    {
-      name: "Emily Davis",
-      email: "emilydavis@example.com",
-      subject: "Re: Question about Budget",
-      date: "2 days ago",
-      teaser:
-        "I've reviewed the budget numbers you sent over.\nCan we set up a quick call to discuss some potential adjustments?",
-    },
-    {
-      name: "Michael Wilson",
-      email: "michaelwilson@example.com",
-      subject: "Important Announcement",
-      date: "1 week ago",
-      teaser:
-        "Please join us for an all-hands meeting this Friday at 3 PM.\nWe have some exciting news to share about the company's future.",
-    },
-    {
-      name: "Sarah Brown",
-      email: "sarahbrown@example.com",
-      subject: "Re: Feedback on Proposal",
-      date: "1 week ago",
-      teaser:
-        "Thank you for sending over the proposal. I've reviewed it and have some thoughts.\nCould we schedule a meeting to discuss my feedback in detail?",
-    },
-    {
-      name: "David Lee",
-      email: "davidlee@example.com",
-      subject: "New Project Idea",
-      date: "1 week ago",
-      teaser:
-        "I've been brainstorming and came up with an interesting project concept.\nDo you have time this week to discuss its potential impact and feasibility?",
-    },
-    {
-      name: "Olivia Wilson",
-      email: "oliviawilson@example.com",
-      subject: "Vacation Plans",
-      date: "1 week ago",
-      teaser:
-        "Just a heads up that I'll be taking a two-week vacation next month.\nI'll make sure all my projects are up to date before I leave.",
-    },
-    {
-      name: "James Martin",
-      email: "jamesmartin@example.com",
-      subject: "Re: Conference Registration",
-      date: "1 week ago",
-      teaser:
-        "I've completed the registration for the upcoming tech conference.\nLet me know if you need any additional information from my end.",
-    },
-    {
-      name: "Sophia White",
-      email: "sophiawhite@example.com",
-      subject: "Team Dinner",
-      date: "1 week ago",
-      teaser:
-        "To celebrate our recent project success, I'd like to organize a team dinner.\nAre you available next Friday evening? Please let me know your preferences.",
-    },
-  ],
+interface NavItem {
+  title: string
+  url: string
+  icon: any
+  badge?: string
+  isMain?: boolean
 }
 
-const activeItem = ref(data.navMain[0]!)
-const mails = ref(data.mails)
-const { setOpen } = useSidebar()
+// Admin Navigation Menu
+const adminNavItems = computed<NavItem[]>(() => [
+  {
+    title: 'Dashboard',
+    url: '/dashboard',
+    icon: LayoutDashboard,
+  },
+  {
+    title: 'Field Manager',
+    url: '/field-manager',
+    icon: Users,
+    badge: 'MAIN',
+    isMain: true,
+  },
+  {
+    title: 'Shared Documents',
+    url: '/shared-documents',
+    icon: FolderSync,
+  },
+  {
+    title: 'Activity Trail',
+    url: '/admin/activity',
+    icon: History,
+  },
+  {
+    title: 'Settings',
+    url: '/admin/settings',
+    icon: Settings,
+  },
+])
+
+// Employee Navigation Menu
+const employeeNavItems = computed<NavItem[]>(() => [
+  {
+    title: 'Dashboard',
+    url: '/dashboard',
+    icon: LayoutDashboard,
+  },
+  {
+    title: 'My Files',
+    url: '/my-files',
+    icon: FolderTree,
+    badge: 'MAIN',
+    isMain: true,
+  },
+  {
+    title: 'Shared Documents',
+    url: '/shared-documents',
+    icon: FolderSync,
+  },
+  {
+    title: 'Comments',
+    url: '/comments',
+    icon: MessageSquare,
+  },
+  {
+    title: 'Profile & Storage',
+    url: '/profile',
+    icon: User,
+  },
+])
+
+const navItems = computed(() => (isAdmin.value ? adminNavItems.value : employeeNavItems.value))
+
+const isCurrentRoute = (url: string) => {
+  if (url === '/dashboard') return route.path === '/dashboard'
+  return route.path.startsWith(url)
+}
+
+const navigateTo = (url: string) => {
+  router.push(url)
+}
 </script>
 
 <template>
-  <Sidebar
-    class="overflow-hidden *:data-[sidebar=sidebar]:flex-row"
-    v-bind="props"
-  >
-    <!-- This is the first sidebar -->
-    <!-- We disable collapsible and adjust width to icon. -->
-    <!-- This will make the sidebar appear as icons. -->
-    <Sidebar
-      collapsible="none"
-      class="w-[calc(var(--sidebar-width-icon)+1px)]! border-r"
-    >
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" as-child class="md:h-8 md:p-0">
-              <a href="#">
-                <div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Command class="size-4" />
-                </div>
-                <div class="grid flex-1 text-left text-sm leading-tight">
-                  <span class="truncate font-medium">Acme Inc</span>
-                  <span class="truncate text-xs">Enterprise</span>
-                </div>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent class="px-1.5 md:px-0">
-            <SidebarMenu>
-              <SidebarMenuItem v-for="item in data.navMain" :key="item.title">
-                <SidebarMenuButton
-                  :tooltip="h('div', { hidden: false }, item.title)"
-                  :is-active="activeItem.title === item.title"
-                  class="px-2.5 md:px-2"
-                  @click="() => {
-                    activeItem = item
-
-                    const mail = data.mails.sort(() => Math.random() - 0.5)
-                    mails = mail.slice(0, Math.max(5, Math.floor(Math.random() * 10) + 1))
-                    setOpen(true)
-                  }"
-                >
-                  <component :is="item.icon" />
-                  <span>{{ item.title }}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter>
-        <NavUser :user="data.user" />
-      </SidebarFooter>
-    </Sidebar>
-
-    <!--  This is the second sidebar -->
-    <!--  We disable collapsible and let it fill remaining space -->
-    <Sidebar collapsible="none" class="hidden flex-1 md:flex">
-      <SidebarHeader class="gap-3.5 border-b p-4">
-        <div class="flex w-full items-center justify-between">
-          <div class="text-base font-medium text-foreground">
-            {{ activeItem.title }}
-          </div>
-          <Label class="flex items-center gap-2 text-sm">
-            <span>Unreads</span>
-            <Switch class="shadow-none" />
-          </Label>
+  <Sidebar class="border-r">
+    <!-- Sidebar Header -->
+    <SidebarHeader class="border-b px-4 py-3">
+      <div class="flex items-center gap-3">
+        <div class="size-9 rounded-lg bg-primary text-primary-foreground font-black flex items-center justify-center text-sm shadow-xs">
+          FH
         </div>
-        <SidebarInput placeholder="Type to search..." />
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup class="px-0">
-          <SidebarGroupContent>
-            <a
-              v-for="mail in mails"
-              :key="mail.email"
-              href="#"
-              class="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-start gap-2 border-b p-4 text-sm leading-tight whitespace-nowrap last:border-b-0"
+        <div class="flex flex-col text-left">
+          <span class="font-bold text-sm leading-tight text-foreground">DBB FieldHub</span>
+          <span class="text-[11px] text-muted-foreground font-medium">Digital Field Files</span>
+        </div>
+      </div>
+    </SidebarHeader>
+
+    <!-- Sidebar Main Content -->
+    <SidebarContent class="px-2 py-3">
+      <SidebarGroup>
+        <SidebarGroupLabel class="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase px-2 mb-1">
+          {{ isAdmin ? 'Office Admin Workspace' : 'Field Employee Portal' }}
+        </SidebarGroupLabel>
+        
+        <SidebarGroupContent>
+          <SidebarMenu class="space-y-1">
+            <SidebarMenuItem
+              v-for="item in navItems"
+              :key="item.title"
             >
-              <div class="flex w-full items-center gap-2">
-                <span>{{ mail.name }}</span>
-                <span class="ml-auto text-xs">{{ mail.date }}</span>
-              </div>
-              <span class="font-medium">{{ mail.subject }}</span>
-              <span class="line-clamp-2 w-[260px] whitespace-break-spaces text-xs">
-                {{ mail.teaser }}
-              </span>
-            </a>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+              <SidebarMenuButton
+                :is-active="isCurrentRoute(item.url)"
+                class="w-full justify-between gap-3 text-sm py-2 px-3 rounded-lg transition-colors cursor-pointer"
+                :class="[
+                  isCurrentRoute(item.url)
+                    ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                    : 'text-foreground/80 hover:bg-accent hover:text-foreground',
+                  item.isMain && !isCurrentRoute(item.url)
+                    ? 'border border-primary/25 bg-primary/5 text-primary'
+                    : '',
+                ]"
+                @click="navigateTo(item.url)"
+              >
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <component
+                    :is="item.icon"
+                    :class="[
+                      'size-4 shrink-0',
+                      isCurrentRoute(item.url)
+                        ? 'text-primary-foreground'
+                        : item.isMain
+                          ? 'text-primary'
+                          : 'text-muted-foreground',
+                    ]"
+                  />
+                  <span class="truncate">{{ item.title }}</span>
+                </div>
+
+                <span
+                  v-if="item.badge"
+                  :class="[
+                    'text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider shrink-0',
+                    isCurrentRoute(item.url)
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-primary text-primary-foreground',
+                  ]"
+                >
+                  {{ item.badge }}
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </SidebarContent>
+
+    <!-- Sidebar Footer -->
+    <SidebarFooter class="border-t p-3 bg-muted/20">
+      <div
+        class="flex items-center gap-3 p-2 rounded-lg bg-card border cursor-pointer hover:bg-accent transition-colors"
+        @click="navigateTo('/profile')"
+      >
+        <Avatar class="size-8 border">
+          <AvatarFallback class="bg-primary/10 text-primary text-xs font-bold">
+            {{ currentUser?.name.split(' ').map((n) => n[0]).join('') }}
+          </AvatarFallback>
+        </Avatar>
+        <div class="flex flex-col min-w-0 flex-1">
+          <span class="text-xs font-semibold truncate leading-tight">{{ currentUser?.name }}</span>
+          <span class="text-[10px] text-muted-foreground truncate">{{ currentUser?.position }}</span>
+        </div>
+      </div>
+    </SidebarFooter>
+
+    <SidebarRail />
   </Sidebar>
 </template>

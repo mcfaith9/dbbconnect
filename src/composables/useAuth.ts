@@ -1,11 +1,14 @@
 import { ref, computed } from 'vue'
 import { UserService } from '@/services/UserService'
 import { storage, INITIAL_USERS } from '@/services/storage'
-import type { User, UserRole } from '@/types'
+import { AuthService, TEST_ACCOUNTS } from '@/services/auth/authService'
+import type { User, UserRole, AuthUser } from '@/types'
 
-const currentUser = ref<User>(INITIAL_USERS[0]) // Default to Maria Clara (Admin)
+// Initialize from stored session if present
+const storedSession = AuthService.getSession()
+const currentUser = ref<AuthUser | User | null>(storedSession)
 const allUsers = ref<User[]>(INITIAL_USERS)
-const isAuthenticated = ref(true)
+const isAuthenticated = computed(() => !!currentUser.value)
 const isInitialized = ref(false)
 
 export function useAuth() {
@@ -16,16 +19,25 @@ export function useAuth() {
       const users = await UserService.getAllUsers()
       if (users.length > 0) {
         allUsers.value = users
-        // Keep current selected user if existing
-        const found = users.find((u) => u.id === currentUser.value?.id)
+      }
+
+      // Check if stored session user still exists or refresh profile
+      const sessionUser = AuthService.getSession()
+      if (sessionUser) {
+        const found = allUsers.value.find((u) => u.id === sessionUser.id)
         if (found) {
-          currentUser.value = found
+          currentUser.value = {
+            ...sessionUser,
+            ...found,
+            username: sessionUser.username || found.username || found.name,
+            displayName: sessionUser.displayName || found.displayName || found.name,
+          }
         } else {
-          currentUser.value = users[0]
+          currentUser.value = sessionUser
         }
       }
     } catch (e) {
-      console.warn('Auth init using fallback users', e)
+      console.warn('Auth init error', e)
     } finally {
       isInitialized.value = true
     }
@@ -33,41 +45,46 @@ export function useAuth() {
 
   const isAdmin = computed(() => currentUser.value?.role === 'admin')
   const isEmployee = computed(() => currentUser.value?.role === 'employee')
+  const userRole = computed<UserRole | null>(() => currentUser.value?.role || null)
+  const username = computed(() => currentUser.value?.username || currentUser.value?.name || '')
+  const displayName = computed(() => currentUser.value?.displayName || currentUser.value?.name || '')
 
-  async function loginAs(user: User) {
-    currentUser.value = user
-    isAuthenticated.value = true
+  async function loginAs(user: User | AuthUser) {
+    const authUser = AuthService.loginAs(user)
+    currentUser.value = authUser
+    return authUser
   }
 
-  async function login(email: string, _password?: string): Promise<boolean> {
-    const user = allUsers.value.find((u) => u.email.toLowerCase() === email.toLowerCase())
-    if (user) {
-      currentUser.value = user
-      isAuthenticated.value = true
-      return true
+  async function login(
+    usernameInput: string,
+    passwordInput: string
+  ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+    const result = await AuthService.login(usernameInput, passwordInput)
+    if (result.success && result.user) {
+      currentUser.value = result.user
+      return { success: true, user: result.user }
     }
-    return false
+    return { success: false, error: result.error || 'Invalid credentials' }
   }
 
-  async function register(name: string, email: string, role: UserRole = 'employee', position = 'Field Engineer'): Promise<User> {
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      name,
-      email,
-      role,
-      position,
-      department: 'Field Operations',
+  async function register(
+    name: string,
+    email: string,
+    role: UserRole = 'employee',
+    position = 'Field Engineer'
+  ): Promise<{ success: boolean; user: AuthUser }> {
+    const result = await AuthService.register(name, email, role, position)
+    if (result.success) {
+      currentUser.value = result.user
+      const users = await UserService.getAllUsers()
+      allUsers.value = users
     }
-    await UserService.updateUser(newUser)
-    allUsers.value.push(newUser)
-    currentUser.value = newUser
-    isAuthenticated.value = true
-    return newUser
+    return result
   }
 
   function logout() {
-    // For convenience in testing, reset to default admin
-    currentUser.value = INITIAL_USERS[0]
+    AuthService.clearSession()
+    currentUser.value = null
   }
 
   return {
@@ -76,10 +93,15 @@ export function useAuth() {
     isAuthenticated,
     isAdmin,
     isEmployee,
+    userRole,
+    username,
+    displayName,
+    testAccounts: TEST_ACCOUNTS,
     initAuth,
     loginAs,
     login,
     register,
     logout,
+    getTestAccounts: AuthService.getTestAccounts,
   }
 }

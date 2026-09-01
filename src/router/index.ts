@@ -102,9 +102,29 @@ export const router = createRouter({
 
 // Role-based Navigation Guard
 router.beforeEach((to, _from, next) => {
-  const { isAdmin } = useAuth()
+  const { isAuthenticated, isAdmin } = useAuth()
 
-  // Guard admin routes against employee access
+  // 1. If public route (e.g. /login, /register)
+  if (to.meta.public) {
+    if (isAuthenticated.value) {
+      // If already logged in, redirect to role home
+      next(isAdmin.value ? '/field-manager' : '/my-files')
+      return
+    }
+    next()
+    return
+  }
+
+  // 2. If not authenticated, redirect to /login
+  if (!isAuthenticated.value) {
+    next({
+      path: '/login',
+      query: to.fullPath && to.fullPath !== '/' && to.fullPath !== '/dashboard' ? { redirect: to.fullPath } : undefined,
+    })
+    return
+  }
+
+  // 3. Guard admin routes against employee access
   if (to.meta.requiresAdmin && !isAdmin.value) {
     next('/my-files')
     return

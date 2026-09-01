@@ -3,6 +3,8 @@ export type UserRole = 'admin' | 'employee'
 export interface User {
   id: string
   name: string
+  displayName?: string
+  username?: string
   email: string
   role: UserRole
   avatar?: string
@@ -10,6 +12,25 @@ export interface User {
   department: string
   phone?: string
   assignedProject?: string
+}
+
+export interface AuthUser {
+  id: string
+  username: string
+  displayName: string
+  name: string
+  email: string
+  role: UserRole
+  avatar?: string
+  position: string
+  department: string
+  phone?: string
+  assignedProject?: string
+}
+
+export interface LoginCredentials {
+  username: string
+  password: string
 }
 
 export interface Folder {

@@ -60,6 +60,11 @@ const handleSwitchUser = async (user: User) => {
     router.push('/my-files')
   }
 }
+
+const handleLogout = () => {
+  logout()
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -242,9 +247,9 @@ const handleSwitchUser = async (user: User) => {
             System Settings
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem class="cursor-pointer text-destructive" @click="logout">
+          <DropdownMenuItem class="cursor-pointer text-destructive focus:text-destructive" @click="handleLogout">
             <LogOut class="size-4 mr-2" />
-            <span>Reset Demo User</span>
+            <span>Sign Out</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

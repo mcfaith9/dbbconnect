@@ -15,18 +15,45 @@ const STORES = {
 // Initial seed data
 export const INITIAL_USERS: User[] = [
   {
-    id: 'user-admin-1',
-    name: 'Maria Clara',
-    email: 'admin@dbbconnect.com',
+    id: 'admin-001',
+    username: 'dmbbadmin',
+    displayName: 'DMBB Administrator',
+    name: 'DMBB Administrator',
+    email: 'dmbbadmin@dbb.com',
     role: 'admin',
     position: 'Office Document Administrator',
-    department: 'Operations & Engineering',
-    phone: '+63 917 123 4567',
+    department: 'Executive Management & Operations',
+    phone: '+63 917 111 2233',
   },
   {
-    id: 'emp-juan',
+    id: 'admin-002',
+    username: 'dbbadmin',
+    displayName: 'DBB Administrator',
+    name: 'DBB Administrator',
+    email: 'dbbadmin@dbb.com',
+    role: 'admin',
+    position: 'Head Field Administrator',
+    department: 'Field Management & Operations',
+    phone: '+63 917 222 3344',
+  },
+  {
+    id: 'employee-001',
+    username: 'Marc Louie Cabigas',
+    displayName: 'Marc Louie Cabigas',
+    name: 'Marc Louie Cabigas',
+    email: 'marc.cabigas@dbb.com',
+    role: 'employee',
+    position: 'Lead Field Engineer',
+    department: 'Naga Project Team',
+    phone: '+63 918 100 2001',
+    assignedProject: 'Naga Project Phase 2',
+  },
+  {
+    id: 'employee-002',
+    username: 'Juan Dela Cruz',
+    displayName: 'Juan Dela Cruz',
     name: 'Juan Dela Cruz',
-    email: 'juan.delacruz@dbbconnect.com',
+    email: 'juan.delacruz@dbb.com',
     role: 'employee',
     position: 'Senior Field Engineer',
     department: 'Naga Project Team',
@@ -34,34 +61,73 @@ export const INITIAL_USERS: User[] = [
     assignedProject: 'Naga Project Phase 2',
   },
   {
-    id: 'emp-pedro',
+    id: 'employee-003',
+    username: 'Pedro Santos',
+    displayName: 'Pedro Santos',
     name: 'Pedro Santos',
-    email: 'pedro.santos@dbbconnect.com',
+    email: 'pedro.santos@dbb.com',
     role: 'employee',
     position: 'Site Safety Officer',
     department: 'Cebu Commercial Port',
     phone: '+63 920 345 6789',
     assignedProject: 'Cebu Project',
   },
-  {
-    id: 'emp-mark',
-    name: 'Mark Reyes',
-    email: 'mark.reyes@dbbconnect.com',
-    role: 'employee',
-    position: 'Structural & Quality Inspector',
-    department: 'Field Quality Assurance',
-    phone: '+63 922 456 7890',
-    assignedProject: 'Naga Project Phase 2',
-  },
 ]
 
 export const INITIAL_FOLDERS: Folder[] = [
-  // Juan Dela Cruz Folders
+  // Marc Louie Cabigas Folders (employee-001)
+  {
+    id: 'folder-marc-naga',
+    name: 'Naga Project Phase 2',
+    parentId: null,
+    ownerId: 'employee-001',
+    createdAt: '2026-08-20T08:00:00.000Z',
+    updatedAt: '2026-08-28T09:15:00.000Z',
+    color: '#2563eb',
+  },
+  {
+    id: 'folder-marc-safety',
+    name: 'Safety & Compliance',
+    parentId: 'folder-marc-naga',
+    ownerId: 'employee-001',
+    createdAt: '2026-08-20T08:30:00.000Z',
+    updatedAt: '2026-08-29T10:00:00.000Z',
+    color: '#16a34a',
+  },
+  {
+    id: 'folder-marc-drawings',
+    name: 'Engineering Blueprints',
+    parentId: 'folder-marc-naga',
+    ownerId: 'employee-001',
+    createdAt: '2026-08-20T08:35:00.000Z',
+    updatedAt: '2026-08-27T14:20:00.000Z',
+    color: '#ea580c',
+  },
+  {
+    id: 'folder-marc-permits',
+    name: 'Permits & Approvals',
+    parentId: 'folder-marc-naga',
+    ownerId: 'employee-001',
+    createdAt: '2026-08-20T08:40:00.000Z',
+    updatedAt: '2026-08-30T11:45:00.000Z',
+    color: '#9333ea',
+  },
+  {
+    id: 'folder-marc-photos',
+    name: 'Site Progress Photos',
+    parentId: 'folder-marc-naga',
+    ownerId: 'employee-001',
+    createdAt: '2026-08-21T09:00:00.000Z',
+    updatedAt: '2026-08-31T08:10:00.000Z',
+    color: '#0891b2',
+  },
+
+  // Juan Dela Cruz Folders (employee-002)
   {
     id: 'folder-juan-naga',
     name: 'Naga Project',
     parentId: null,
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     createdAt: '2026-08-20T08:00:00.000Z',
     updatedAt: '2026-08-28T09:15:00.000Z',
     color: '#2563eb',
@@ -70,7 +136,7 @@ export const INITIAL_FOLDERS: Folder[] = [
     id: 'folder-juan-safety',
     name: 'Safety',
     parentId: 'folder-juan-naga',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     createdAt: '2026-08-20T08:30:00.000Z',
     updatedAt: '2026-08-29T10:00:00.000Z',
     color: '#16a34a',
@@ -79,7 +145,7 @@ export const INITIAL_FOLDERS: Folder[] = [
     id: 'folder-juan-drawings',
     name: 'Drawings',
     parentId: 'folder-juan-naga',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     createdAt: '2026-08-20T08:35:00.000Z',
     updatedAt: '2026-08-27T14:20:00.000Z',
     color: '#ea580c',
@@ -88,7 +154,7 @@ export const INITIAL_FOLDERS: Folder[] = [
     id: 'folder-juan-permits',
     name: 'Permits',
     parentId: 'folder-juan-naga',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     createdAt: '2026-08-20T08:40:00.000Z',
     updatedAt: '2026-08-30T11:45:00.000Z',
     color: '#9333ea',
@@ -97,18 +163,18 @@ export const INITIAL_FOLDERS: Folder[] = [
     id: 'folder-juan-photos',
     name: 'Photos',
     parentId: 'folder-juan-naga',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     createdAt: '2026-08-21T09:00:00.000Z',
     updatedAt: '2026-08-31T08:10:00.000Z',
     color: '#0891b2',
   },
 
-  // Pedro Santos Folders
+  // Pedro Santos Folders (employee-003)
   {
     id: 'folder-pedro-cebu',
     name: 'Cebu Project',
     parentId: null,
-    ownerId: 'emp-pedro',
+    ownerId: 'employee-003',
     createdAt: '2026-08-22T08:00:00.000Z',
     updatedAt: '2026-08-29T15:30:00.000Z',
     color: '#059669',
@@ -117,7 +183,7 @@ export const INITIAL_FOLDERS: Folder[] = [
     id: 'folder-pedro-safety',
     name: 'Safety',
     parentId: 'folder-pedro-cebu',
-    ownerId: 'emp-pedro',
+    ownerId: 'employee-003',
     createdAt: '2026-08-22T08:15:00.000Z',
     updatedAt: '2026-08-29T16:00:00.000Z',
     color: '#16a34a',
@@ -126,30 +192,10 @@ export const INITIAL_FOLDERS: Folder[] = [
     id: 'folder-pedro-photos',
     name: 'Photos',
     parentId: 'folder-pedro-cebu',
-    ownerId: 'emp-pedro',
+    ownerId: 'employee-003',
     createdAt: '2026-08-22T08:30:00.000Z',
     updatedAt: '2026-08-30T13:10:00.000Z',
     color: '#0891b2',
-  },
-
-  // Mark Reyes Folders
-  {
-    id: 'folder-mark-naga',
-    name: 'Naga Project',
-    parentId: null,
-    ownerId: 'emp-mark',
-    createdAt: '2026-08-23T09:00:00.000Z',
-    updatedAt: '2026-08-30T10:00:00.000Z',
-    color: '#2563eb',
-  },
-  {
-    id: 'folder-mark-permits',
-    name: 'Work Permits',
-    parentId: 'folder-mark-naga',
-    ownerId: 'emp-mark',
-    createdAt: '2026-08-23T09:15:00.000Z',
-    updatedAt: '2026-08-31T07:45:00.000Z',
-    color: '#9333ea',
   },
 
   // Shared Company Documents Folders
@@ -201,7 +247,146 @@ export const INITIAL_FOLDERS: Folder[] = [
 ]
 
 export const INITIAL_DOCUMENTS: Document[] = [
-  // Juan Dela Cruz - Safety Folder
+  // Marc Louie Cabigas - Assigned Files (employee-001)
+  {
+    id: 'doc-marc-1',
+    name: 'Naga Structural Blueprint Rev-3.pdf',
+    originalName: 'Naga Phase 2 Main Facility Blueprint.pdf',
+    mimeType: 'application/pdf',
+    type: 'pdf',
+    size: 5242880, // 5.0 MB
+    sizeFormatted: '5.0 MB',
+    folderId: 'folder-marc-drawings',
+    ownerId: 'employee-001',
+    uploadedBy: {
+      id: 'admin-001',
+      name: 'DMBB Administrator',
+      role: 'admin',
+    },
+    createdAt: '2026-08-21T08:30:00.000Z',
+    updatedAt: '2026-08-29T11:00:00.000Z',
+    version: 'v3.0',
+    isShared: false,
+    assignedTo: ['employee-001'],
+    tags: ['Structural', 'Blueprint', 'Phase 2'],
+    offlineCached: true,
+    offlineCachedAt: '2026-08-31T06:00:00.000Z',
+    pageCount: 18,
+    textContent: `DBB FIELD OPERATIONS - NAGA PROJECT PHASE 2
+STRUCTURAL ENGINEERING BLUEPRINTS & PILING SPECS
+Lead Field Engineer: Marc Louie Cabigas | Supervising Office: DMBB Administration
+
+1. GENERAL DESIGN CRITERIA
+- Heavy industrial load capacity 350 kN/m²
+- Subgrade compaction verification required prior to pad pouring.
+- Rebar grade: ASTM A615 Grade 60 with anti-corrosion marine coating.`,
+  },
+  {
+    id: 'doc-marc-2',
+    name: 'Naga Safety Protocols 2026.pdf',
+    originalName: 'Naga Site Safety Protocols & Emergency Plan.pdf',
+    mimeType: 'application/pdf',
+    type: 'pdf',
+    size: 2411724, // 2.3 MB
+    sizeFormatted: '2.3 MB',
+    folderId: 'folder-marc-safety',
+    ownerId: 'employee-001',
+    uploadedBy: {
+      id: 'admin-001',
+      name: 'DMBB Administrator',
+      role: 'admin',
+    },
+    createdAt: '2026-08-21T09:30:00.000Z',
+    updatedAt: '2026-08-29T10:15:00.000Z',
+    version: 'v2.1',
+    isShared: false,
+    assignedTo: ['employee-001', 'employee-002'],
+    tags: ['Safety', 'Mandatory', 'Naga'],
+    offlineCached: true,
+    offlineCachedAt: '2026-08-31T06:00:00.000Z',
+    pageCount: 14,
+    textContent: `DBB FIELD OPERATIONS - SITE SAFETY ORIENTATION (NAGA PROJECT)
+Approved by: DMBB Administration & DBB Engineering
+
+1. GENERAL SITE DIRECTIVES
+All personnel entering the Naga Project Site Phase 2 must possess an authorized electronic badge and current DBB FieldHub credentials.`,
+  },
+  {
+    id: 'doc-marc-3',
+    name: 'Naga Excavation Work Permit.pdf',
+    originalName: 'Approved Deep Trench Permit Naga Phase 2.pdf',
+    mimeType: 'application/pdf',
+    type: 'pdf',
+    size: 1677721, // 1.6 MB
+    sizeFormatted: '1.6 MB',
+    folderId: 'folder-marc-permits',
+    ownerId: 'employee-001',
+    uploadedBy: {
+      id: 'admin-002',
+      name: 'DBB Administrator',
+      role: 'admin',
+    },
+    createdAt: '2026-08-24T11:00:00.000Z',
+    updatedAt: '2026-08-31T07:45:00.000Z',
+    version: 'v1.0',
+    assignedTo: ['employee-001'],
+    tags: ['Permit', 'Excavation', 'Approved'],
+    offlineCached: true,
+    pageCount: 5,
+    textContent: `EXCAVATION & TRENCHING PERMIT # TR-2026-302
+Depth: 4.2 meters | Location: Sector B Logistics Foundation
+Lead Inspector: Marc Louie Cabigas. Soil test classification: Type B granular.`,
+  },
+  {
+    id: 'doc-marc-4',
+    name: 'Naga Phase 2 Aerial Layout.jpg',
+    originalName: 'Naga Project Aerial Layout Site.jpg',
+    mimeType: 'image/jpeg',
+    type: 'image',
+    size: 1992294, // 1.9 MB
+    sizeFormatted: '1.9 MB',
+    folderId: 'folder-marc-drawings',
+    ownerId: 'employee-001',
+    uploadedBy: {
+      id: 'admin-001',
+      name: 'DMBB Administrator',
+      role: 'admin',
+    },
+    createdAt: '2026-08-25T11:20:00.000Z',
+    updatedAt: '2026-08-25T11:20:00.000Z',
+    version: 'v1.0',
+    assignedTo: ['employee-001'],
+    tags: ['Photo', 'Layout', 'Site'],
+    offlineCached: true,
+    thumbnailUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb180c5f5?w=800&auto=format&fit=crop&q=80',
+    previewUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb180c5f5?w=1600&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'doc-marc-5',
+    name: 'Foundation Pouring Inspection.jpg',
+    originalName: 'Naga Groundwork Concrete Pouring.jpg',
+    mimeType: 'image/jpeg',
+    type: 'image',
+    size: 1887436, // 1.8 MB
+    sizeFormatted: '1.8 MB',
+    folderId: 'folder-marc-photos',
+    ownerId: 'employee-001',
+    uploadedBy: {
+      id: 'employee-001',
+      name: 'Marc Louie Cabigas',
+      role: 'employee',
+    },
+    createdAt: '2026-08-31T08:10:00.000Z',
+    updatedAt: '2026-08-31T08:10:00.000Z',
+    version: 'v1.0',
+    assignedTo: ['employee-001'],
+    tags: ['Site', 'Photo', 'Inspection'],
+    offlineCached: true,
+    thumbnailUrl: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&auto=format&fit=crop&q=80',
+    previewUrl: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1600&auto=format&fit=crop&q=80',
+  },
+
+  // Juan Dela Cruz - Safety Folder (employee-002)
   {
     id: 'doc-juan-1',
     name: 'Safety Orientation.pdf',
@@ -211,17 +396,17 @@ export const INITIAL_DOCUMENTS: Document[] = [
     size: 2516582, // 2.4 MB
     sizeFormatted: '2.4 MB',
     folderId: 'folder-juan-safety',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
+      id: 'admin-001',
+      name: 'DMBB Administrator',
       role: 'admin',
     },
     createdAt: '2026-08-21T09:30:00.000Z',
     updatedAt: '2026-08-29T10:15:00.000Z',
     version: 'v2.1',
     isShared: false,
-    assignedTo: ['emp-juan', 'emp-mark'],
+    assignedTo: ['employee-002', 'employee-001'],
     tags: ['Safety', 'Mandatory', 'Naga'],
     offlineCached: true,
     offlineCachedAt: '2026-08-31T06:00:00.000Z',
@@ -230,16 +415,7 @@ export const INITIAL_DOCUMENTS: Document[] = [
 Document Version: 2.1 | Approved by: Engineering Operations
 
 1. GENERAL SITE DIRECTIVES
-All personnel entering the Naga Project Site Phase 2 must possess an authorized electronic badge and current DBB FieldHub credentials.
-
-2. MANDATORY PERSONAL PROTECTIVE EQUIPMENT (PPE)
-- Hard Hat (Class E electrical rating required in substation zone)
-- High-visibility reflective vest (Orange for engineers, Yellow for visitors)
-- Steel-toe boots with puncture-resistant soles (ASTM F2413 standard)
-- Safety goggles with side shields for grinding and cutting operations
-
-3. HAZARD COMMUNICATION & INCIDENT REPORTING
-Any near-miss incident or equipment malfunction must be logged within 2 hours using the FieldHub digital reporting channel.`,
+All personnel entering the Naga Project Site Phase 2 must possess an authorized electronic badge and current DBB FieldHub credentials.`,
   },
   {
     id: 'doc-juan-2',
@@ -250,16 +426,16 @@ Any near-miss incident or equipment malfunction must be logged within 2 hours us
     size: 1887436, // 1.8 MB
     sizeFormatted: '1.8 MB',
     folderId: 'folder-juan-safety',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
+      id: 'admin-001',
+      name: 'DMBB Administrator',
       role: 'admin',
     },
     createdAt: '2026-08-21T10:00:00.000Z',
     updatedAt: '2026-08-25T11:00:00.000Z',
     version: 'v1.0',
-    assignedTo: ['emp-juan'],
+    assignedTo: ['employee-002'],
     tags: ['Emergency', 'Protocol'],
     offlineCached: true,
     offlineCachedAt: '2026-08-31T06:00:00.000Z',
@@ -269,13 +445,7 @@ Site: Naga Commercial & Logistics Center Phase 2
 
 PRIMARY EMERGENCY CONTACTS:
 - Site Emergency Response Coordinator: +63 917 555 0199
-- Naga City Central Fire Station: (054) 881-2244 / 160
-- Naga Bicol Medical Center Emergency: (054) 472-0400
-- DBB Central Operations Hotline: +63 2 8888 0100
-
-EVACUATION ASSEMBLY AREAS:
-Assembly Point A: North Parking Zone adjacent to Gate 1
-Assembly Point B: Open Grassland Zone west of Substation B`,
+- Naga City Central Fire Station: (054) 881-2244 / 160`,
   },
   {
     id: 'doc-juan-3',
@@ -286,24 +456,22 @@ Assembly Point B: Open Grassland Zone west of Substation B`,
     size: 1258291, // 1.2 MB
     sizeFormatted: '1.2 MB',
     folderId: 'folder-juan-safety',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
+      id: 'admin-001',
+      name: 'DMBB Administrator',
       role: 'admin',
     },
     createdAt: '2026-08-22T08:45:00.000Z',
     updatedAt: '2026-08-22T08:45:00.000Z',
     version: 'v1.0',
-    assignedTo: ['emp-juan'],
+    assignedTo: ['employee-002'],
     tags: ['Rules', 'Compliance'],
     offlineCached: false,
     pageCount: 6,
     textContent: `DBB SITE SAFETY RULES & REGULATIONS
 Strict zero-tolerance policy on safety non-compliance. Daily toolbox meetings mandatory at 07:30 AM before commencement of heavy machinery operations.`,
   },
-
-  // Juan Dela Cruz - Drawings Folder
   {
     id: 'doc-juan-4',
     name: 'Foundation Plan Rev-2.pdf',
@@ -313,16 +481,16 @@ Strict zero-tolerance policy on safety non-compliance. Daily toolbox meetings ma
     size: 4718592, // 4.5 MB
     sizeFormatted: '4.5 MB',
     folderId: 'folder-juan-drawings',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
+      id: 'admin-001',
+      name: 'DMBB Administrator',
       role: 'admin',
     },
     createdAt: '2026-08-24T14:10:00.000Z',
     updatedAt: '2026-08-27T09:30:00.000Z',
     version: 'v2.0',
-    assignedTo: ['emp-juan', 'emp-mark'],
+    assignedTo: ['employee-002', 'employee-001'],
     tags: ['Structural', 'Blueprint', 'Naga'],
     offlineCached: true,
     pageCount: 12,
@@ -340,23 +508,21 @@ Bearing Capacity Verification: 250 kPa sustained.`,
     size: 1992294, // 1.9 MB
     sizeFormatted: '1.9 MB',
     folderId: 'folder-juan-drawings',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
+      id: 'admin-001',
+      name: 'DMBB Administrator',
       role: 'admin',
     },
     createdAt: '2026-08-25T11:20:00.000Z',
     updatedAt: '2026-08-25T11:20:00.000Z',
     version: 'v1.0',
-    assignedTo: ['emp-juan'],
+    assignedTo: ['employee-002'],
     tags: ['Photo', 'Layout', 'Site'],
     offlineCached: false,
     thumbnailUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb180c5f5?w=800&auto=format&fit=crop&q=80',
     previewUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb180c5f5?w=1600&auto=format&fit=crop&q=80',
   },
-
-  // Juan Dela Cruz - Permits Folder
   {
     id: 'doc-juan-6',
     name: 'Work Permit.pdf',
@@ -366,25 +532,23 @@ Bearing Capacity Verification: 250 kPa sustained.`,
     size: 1572864, // 1.5 MB
     sizeFormatted: '1.5 MB',
     folderId: 'folder-juan-permits',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
+      id: 'admin-001',
+      name: 'DMBB Administrator',
       role: 'admin',
     },
     createdAt: '2026-08-26T16:00:00.000Z',
     updatedAt: '2026-08-30T11:45:00.000Z',
     version: 'v1.2',
-    assignedTo: ['emp-juan'],
+    assignedTo: ['employee-002'],
     tags: ['Permits', 'Government', 'Approved'],
     offlineCached: true,
     pageCount: 4,
     textContent: `CITY BUILDING OFFICIAL - NAGA CITY
 SPECIAL WORK PERMIT # WP-2026-0884-NC
 Applicant: DBB Field & Construction Corporation
-Project: Commercial Logistics Depot Phase 2
-Validity: August 1, 2026 - December 31, 2026
-Approved For: Deep Foundation Piling, Structural Erection, Site Drainage.`,
+Project: Commercial Logistics Depot Phase 2`,
   },
   {
     id: 'doc-juan-7',
@@ -395,23 +559,23 @@ Approved For: Deep Foundation Piling, Structural Erection, Site Drainage.`,
     size: 1887436, // 1.8 MB
     sizeFormatted: '1.8 MB',
     folderId: 'folder-juan-photos',
-    ownerId: 'emp-juan',
+    ownerId: 'employee-002',
     uploadedBy: {
-      id: 'emp-juan',
+      id: 'employee-002',
       name: 'Juan Dela Cruz',
       role: 'employee',
     },
     createdAt: '2026-08-31T08:10:00.000Z',
     updatedAt: '2026-08-31T08:10:00.000Z',
     version: 'v1.0',
-    assignedTo: ['emp-juan'],
+    assignedTo: ['employee-002'],
     tags: ['Site', 'Photo', 'Inspection'],
     offlineCached: true,
     thumbnailUrl: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&auto=format&fit=crop&q=80',
     previewUrl: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1600&auto=format&fit=crop&q=80',
   },
 
-  // Pedro Santos - Safety Folder
+  // Pedro Santos - Safety Folder (employee-003)
   {
     id: 'doc-pedro-1',
     name: 'Cebu PPE Compliance Guide.pdf',
@@ -421,16 +585,16 @@ Approved For: Deep Foundation Piling, Structural Erection, Site Drainage.`,
     size: 2097152, // 2.0 MB
     sizeFormatted: '2.0 MB',
     folderId: 'folder-pedro-safety',
-    ownerId: 'emp-pedro',
+    ownerId: 'employee-003',
     uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
+      id: 'admin-001',
+      name: 'DMBB Administrator',
       role: 'admin',
     },
     createdAt: '2026-08-23T10:00:00.000Z',
     updatedAt: '2026-08-29T16:00:00.000Z',
     version: 'v1.1',
-    assignedTo: ['emp-pedro'],
+    assignedTo: ['employee-003'],
     tags: ['Safety', 'Cebu', 'Marine'],
     offlineCached: true,
     pageCount: 10,
@@ -446,48 +610,20 @@ All workers within 10 meters of shoreline or barge must wear Type III Coast Guar
     size: 2621440, // 2.5 MB
     sizeFormatted: '2.5 MB',
     folderId: 'folder-pedro-photos',
-    ownerId: 'emp-pedro',
+    ownerId: 'employee-003',
     uploadedBy: {
-      id: 'emp-pedro',
+      id: 'employee-003',
       name: 'Pedro Santos',
       role: 'employee',
     },
     createdAt: '2026-08-30T13:10:00.000Z',
     updatedAt: '2026-08-30T13:10:00.000Z',
     version: 'v1.0',
-    assignedTo: ['emp-pedro'],
+    assignedTo: ['employee-003'],
     tags: ['Cebu', 'Inspection', 'Photo'],
     offlineCached: false,
     thumbnailUrl: 'https://images.unsplash.com/photo-1590402494682-cd3fb53b1f70?w=800&auto=format&fit=crop&q=80',
     previewUrl: 'https://images.unsplash.com/photo-1590402494682-cd3fb53b1f70?w=1600&auto=format&fit=crop&q=80',
-  },
-
-  // Mark Reyes - Work Permits Folder
-  {
-    id: 'doc-mark-1',
-    name: 'Naga Excavation Work Permit.pdf',
-    originalName: 'Approved Deep Trench Permit Naga.pdf',
-    mimeType: 'application/pdf',
-    type: 'pdf',
-    size: 1677721, // 1.6 MB
-    sizeFormatted: '1.6 MB',
-    folderId: 'folder-mark-permits',
-    ownerId: 'emp-mark',
-    uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
-      role: 'admin',
-    },
-    createdAt: '2026-08-24T11:00:00.000Z',
-    updatedAt: '2026-08-31T07:45:00.000Z',
-    version: 'v1.0',
-    assignedTo: ['emp-mark'],
-    tags: ['Permit', 'Excavation'],
-    offlineCached: true,
-    pageCount: 5,
-    textContent: `EXCAVATION & TRENCHING PERMIT # TR-2026-302
-Depth: 4.2 meters | Location: Sector B Logistics Foundation
-Shoring and trench box installation verified by Mark Reyes. Soil test classification: Type B granular.`,
   },
 
   // Company-wide Shared Documents
@@ -502,15 +638,15 @@ Shoring and trench box installation verified by Mark Reyes. Soil test classifica
     folderId: 'folder-shared-safety',
     ownerId: 'shared',
     uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
+      id: 'admin-001',
+      name: 'DMBB Administrator',
       role: 'admin',
     },
     createdAt: '2026-08-16T08:00:00.000Z',
     updatedAt: '2026-08-28T11:20:00.000Z',
     version: 'v4.0',
     isShared: true,
-    assignedTo: ['emp-juan', 'emp-pedro', 'emp-mark'],
+    assignedTo: ['employee-001', 'employee-002', 'employee-003'],
     tags: ['Handbook', 'Company-Wide', 'Safety'],
     offlineCached: true,
     pageCount: 36,
@@ -529,15 +665,15 @@ This handbook establishes standard operating safety procedures across all Luzon,
     folderId: 'folder-shared-forms',
     ownerId: 'shared',
     uploadedBy: {
-      id: 'user-admin-1',
-      name: 'Maria Clara',
+      id: 'admin-002',
+      name: 'DBB Administrator',
       role: 'admin',
     },
     createdAt: '2026-08-16T09:00:00.000Z',
     updatedAt: '2026-08-27T09:00:00.000Z',
     version: 'v2.0',
     isShared: true,
-    assignedTo: ['emp-juan', 'emp-pedro', 'emp-mark'],
+    assignedTo: ['employee-001', 'employee-002', 'employee-003'],
     tags: ['Form', 'Daily', 'Safety'],
     offlineCached: false,
     textContent: `SPREADSHEET FORM: DAILY TOOLBOX MEETING LOG
@@ -548,29 +684,29 @@ Columns: [Date] [Project Site] [Supervisor] [Topic Discussed] [Attendees Count] 
 export const INITIAL_COMMENTS: DocumentComment[] = [
   {
     id: 'comment-1',
-    documentId: 'doc-juan-1',
-    authorId: 'emp-juan',
-    authorName: 'Juan Dela Cruz',
+    documentId: 'doc-marc-1',
+    authorId: 'employee-001',
+    authorName: 'Marc Louie Cabigas',
     authorRole: 'employee',
-    content: 'This section on substation PPE needs clarification for our night shift crew.',
+    content: 'Piling depth on Sector B logistics footing verified at 4.2m with site subgrade inspection.',
     createdAt: '2026-08-29T10:15:00.000Z',
   },
   {
     id: 'comment-2',
-    documentId: 'doc-juan-1',
-    authorId: 'user-admin-1',
-    authorName: 'Maria Clara',
+    documentId: 'doc-marc-1',
+    authorId: 'admin-001',
+    authorName: 'DMBB Administrator',
     authorRole: 'admin',
-    content: 'Updated instructions for night shift lighting & arc flash rating will be uploaded in v2.2 today.',
+    content: 'Noted Engr. Marc. Structural revision 3 approved for concrete pour.',
     createdAt: '2026-08-29T11:00:00.000Z',
   },
   {
     id: 'comment-3',
-    documentId: 'doc-juan-4',
-    authorId: 'emp-mark',
-    authorName: 'Mark Reyes',
+    documentId: 'doc-juan-1',
+    authorId: 'employee-002',
+    authorName: 'Juan Dela Cruz',
     authorRole: 'employee',
-    content: 'Grid Axis D-4 footing rebar spacing verified on site. Complies with Rev-2 specs.',
+    content: 'Night shift arc flash rating verified with safety office.',
     createdAt: '2026-08-30T14:30:00.000Z',
   },
 ]
@@ -579,52 +715,52 @@ export const INITIAL_ACTIVITIES: ActivityLog[] = [
   {
     id: 'act-1',
     type: 'upload',
-    userId: 'user-admin-1',
-    userName: 'Maria Clara',
+    userId: 'admin-001',
+    userName: 'DMBB Administrator',
     userRole: 'admin',
-    actionTitle: 'Uploaded Safety Orientation.pdf',
-    description: 'Uploaded Safety Orientation.pdf to Juan Dela Cruz / Naga Project / Safety',
-    targetName: 'Safety Orientation.pdf',
-    targetId: 'doc-juan-1',
-    employeeName: 'Juan Dela Cruz',
+    actionTitle: 'Uploaded Naga Structural Blueprint Rev-3.pdf',
+    description: 'Uploaded blueprint to Marc Louie Cabigas / Naga Project Phase 2 / Engineering Blueprints',
+    targetName: 'Naga Structural Blueprint Rev-3.pdf',
+    targetId: 'doc-marc-1',
+    employeeName: 'Marc Louie Cabigas',
     timestamp: '2026-08-29T10:15:00.000Z',
   },
   {
     id: 'act-2',
     type: 'assign',
-    userId: 'user-admin-1',
-    userName: 'Maria Clara',
+    userId: 'admin-001',
+    userName: 'DMBB Administrator',
     userRole: 'admin',
     actionTitle: 'Assigned Document',
-    description: 'Assigned Foundation Plan Rev-2.pdf to Mark Reyes & Juan Dela Cruz',
-    targetName: 'Foundation Plan Rev-2.pdf',
-    targetId: 'doc-juan-4',
-    employeeName: 'Mark Reyes, Juan Dela Cruz',
+    description: 'Assigned Naga Safety Protocols 2026.pdf to Marc Louie Cabigas & Juan Dela Cruz',
+    targetName: 'Naga Safety Protocols 2026.pdf',
+    targetId: 'doc-marc-2',
+    employeeName: 'Marc Louie Cabigas, Juan Dela Cruz',
     timestamp: '2026-08-30T09:00:00.000Z',
   },
   {
     id: 'act-3',
     type: 'comment',
-    userId: 'emp-juan',
-    userName: 'Juan Dela Cruz',
+    userId: 'employee-001',
+    userName: 'Marc Louie Cabigas',
     userRole: 'employee',
     actionTitle: 'New Document Comment',
-    description: 'Commented on Safety Orientation.pdf',
-    targetName: 'Safety Orientation.pdf',
-    targetId: 'doc-juan-1',
-    employeeName: 'Juan Dela Cruz',
+    description: 'Commented on Naga Structural Blueprint Rev-3.pdf',
+    targetName: 'Naga Structural Blueprint Rev-3.pdf',
+    targetId: 'doc-marc-1',
+    employeeName: 'Marc Louie Cabigas',
     timestamp: '2026-08-29T10:15:00.000Z',
   },
   {
     id: 'act-4',
     type: 'offline_sync',
-    userId: 'emp-juan',
-    userName: 'Juan Dela Cruz',
+    userId: 'employee-001',
+    userName: 'Marc Louie Cabigas',
     userRole: 'employee',
     actionTitle: 'Offline Cache Updated',
-    description: 'Downloaded Safety Orientation.pdf & Emergency Procedure.pdf for offline use',
-    targetName: 'Naga Project Safety Files',
-    employeeName: 'Juan Dela Cruz',
+    description: 'Cached Naga Structural Blueprint Rev-3.pdf & Safety Protocols for offline field use',
+    targetName: 'Naga Project Phase 2 Blueprints',
+    employeeName: 'Marc Louie Cabigas',
     timestamp: '2026-08-31T06:00:00.000Z',
   },
 ]
@@ -678,30 +814,41 @@ export const storage = {
     const db = await openDB()
     const tx = db.transaction([STORES.USERS, STORES.FOLDERS, STORES.DOCUMENTS, STORES.COMMENTS, STORES.ACTIVITIES], 'readwrite')
     
-    // Seed Users if empty
+    // Seed Users
     const userStore = tx.objectStore(STORES.USERS)
-    const userCountReq = userStore.count()
-    userCountReq.onsuccess = () => {
-      if (userCountReq.result === 0) {
-        INITIAL_USERS.forEach((u) => userStore.put(u))
-      }
-    }
+    INITIAL_USERS.forEach((u) => userStore.put(u))
 
-    // Seed Folders if empty
+    // Seed Folders
     const folderStore = tx.objectStore(STORES.FOLDERS)
     const folderCountReq = folderStore.count()
     folderCountReq.onsuccess = () => {
       if (folderCountReq.result === 0) {
         INITIAL_FOLDERS.forEach((f) => folderStore.put(f))
+      } else {
+        // Ensure core initial folders exist
+        INITIAL_FOLDERS.forEach((f) => {
+          const req = folderStore.get(f.id)
+          req.onsuccess = () => {
+            if (!req.result) folderStore.put(f)
+          }
+        })
       }
     }
 
-    // Seed Documents if empty
+    // Seed Documents
     const docStore = tx.objectStore(STORES.DOCUMENTS)
     const docCountReq = docStore.count()
     docCountReq.onsuccess = () => {
       if (docCountReq.result === 0) {
         INITIAL_DOCUMENTS.forEach((d) => docStore.put(d))
+      } else {
+        // Ensure core initial documents exist
+        INITIAL_DOCUMENTS.forEach((d) => {
+          const req = docStore.get(d.id)
+          req.onsuccess = () => {
+            if (!req.result) docStore.put(d)
+          }
+        })
       }
     }
 

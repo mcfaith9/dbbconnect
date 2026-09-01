@@ -119,11 +119,11 @@ const navigateTo = (url: string) => {
     <SidebarHeader class="border-b px-4 py-3">
       <div class="flex items-center gap-3">
         <div class="size-9 rounded-lg bg-primary text-primary-foreground font-black flex items-center justify-center text-sm shadow-xs">
-          FH
+          <img src="@/assets/img/dbblogo.png" class="rounded-md" />
         </div>
         <div class="flex flex-col text-left">
-          <span class="font-bold text-sm leading-tight text-foreground">DBB FieldHub</span>
-          <span class="text-[11px] text-muted-foreground font-medium">Digital Field Files</span>
+          <span class="font-bold text-sm leading-tight text-foreground">DBB Connect</span>
+          <span class="text-[11px] text-muted-foreground font-medium">Digital Files</span>
         </div>
       </div>
     </SidebarHeader>
@@ -160,7 +160,7 @@ const navigateTo = (url: string) => {
                     :class="[
                       'size-4 shrink-0',
                       isCurrentRoute(item.url)
-                        ? 'text-primary-foreground'
+                        ? ''
                         : item.isMain
                           ? 'text-primary'
                           : 'text-muted-foreground',
@@ -174,7 +174,7 @@ const navigateTo = (url: string) => {
                   :class="[
                     'text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider shrink-0',
                     isCurrentRoute(item.url)
-                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      ? 'bg-primary text-primary-foreground'
                       : 'bg-primary text-primary-foreground',
                   ]"
                 >

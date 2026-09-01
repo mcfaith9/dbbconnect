@@ -378,7 +378,7 @@ const handleDownload = () => {
                   {{ document.name }}
                 </h1>
                 <div class="text-xs sm:text-sm text-foreground/90 whitespace-pre-line leading-relaxed font-sans">
-                  {{ document.textContent || 'Digital Field Document content rendered via DBB FieldHub Engine.' }}
+                  {{ document.textContent || 'Digital Field Document content rendered via DBB Connect Engine.' }}
                 </div>
               </div>
 

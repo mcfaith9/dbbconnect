@@ -72,7 +72,7 @@ const handleQuickLogin = async (account: any) => {
           FH
         </div>
         <div>
-          <CardTitle class="text-2xl font-bold tracking-tight text-foreground">DBB FieldHub</CardTitle>
+          <CardTitle class="text-2xl font-bold tracking-tight text-foreground">DBB Connect</CardTitle>
           <CardDescription class="text-xs text-muted-foreground mt-1">
             Digital Field File Management &amp; Offline Document Access
           </CardDescription>
@@ -126,7 +126,7 @@ const handleQuickLogin = async (account: any) => {
 
           <Button type="submit" class="w-full font-semibold shadow-sm" :disabled="isLoading">
             <Loader2 v-if="isLoading" class="size-4 mr-2 animate-spin" />
-            <span v-if="!isLoading">Sign In to FieldHub</span>
+            <span v-if="!isLoading">Sign In to Connect</span>
             <span v-else>Signing in...</span>
           </Button>
         </form>

@@ -77,7 +77,7 @@ const handleLogout = () => {
           <span class="size-6 rounded bg-primary text-primary-foreground font-black text-xs flex items-center justify-center">
             FH
           </span>
-          <span>DBB FieldHub</span>
+          <span>DBB Connect</span>
         </span>
         <Badge
           :variant="isAdmin ? 'default' : 'secondary'"

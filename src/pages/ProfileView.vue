@@ -86,7 +86,7 @@ const clearAllOfflineCache = async () => {
           Offline Device Storage &amp; PWA Diagnostics
         </CardTitle>
         <CardDescription>
-          DBB FieldHub uses high-capacity IndexedDB for persistent field file caching and automatic syncing.
+          DBB Connect uses high-capacity IndexedDB for persistent field file caching and automatic syncing.
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-4">

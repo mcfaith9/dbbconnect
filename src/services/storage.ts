@@ -309,7 +309,7 @@ Lead Field Engineer: Marc Louie Cabigas | Supervising Office: DMBB Administratio
 Approved by: DMBB Administration & DBB Engineering
 
 1. GENERAL SITE DIRECTIVES
-All personnel entering the Naga Project Site Phase 2 must possess an authorized electronic badge and current DBB FieldHub credentials.`,
+All personnel entering the Naga Project Site Phase 2 must possess an authorized electronic badge and current DBB Connect credentials.`,
   },
   {
     id: 'doc-marc-3',
@@ -415,7 +415,7 @@ Lead Inspector: Marc Louie Cabigas. Soil test classification: Type B granular.`,
 Document Version: 2.1 | Approved by: Engineering Operations
 
 1. GENERAL SITE DIRECTIVES
-All personnel entering the Naga Project Site Phase 2 must possess an authorized electronic badge and current DBB FieldHub credentials.`,
+All personnel entering the Naga Project Site Phase 2 must possess an authorized electronic badge and current DBB Connect credentials.`,
   },
   {
     id: 'doc-juan-2',

@@ -31,7 +31,7 @@ const handleRegister = async () => {
         </div>
         <CardTitle class="text-xl font-bold">Register Field Personnel</CardTitle>
         <CardDescription>
-          Create a new user account for DBB FieldHub.
+          Create a new user account for DBB Connect.
         </CardDescription>
       </CardHeader>
 

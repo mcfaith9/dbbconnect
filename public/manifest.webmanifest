@@ -1,6 +1,6 @@
 {
-  "name": "DBB FieldHub",
-  "short_name": "FieldHub",
+  "name": "DBB Connect",
+  "short_name": "DBBConnect",
   "description": "Digital Field File Management PWA for Field Employees and Office Admins",
   "start_url": "/",
   "display": "standalone",

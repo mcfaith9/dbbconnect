@@ -1,5 +1,5 @@
-// DBB FieldHub Service Worker
-const CACHE_NAME = 'dbb-fieldhub-v1';
+// DBB Connect Service Worker
+const CACHE_NAME = 'dbb-connect-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

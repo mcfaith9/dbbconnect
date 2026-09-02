@@ -60,7 +60,7 @@ const openDocument = (docId: string) => {
     </div>
 
     <!-- Comments Stream Feed -->
-    <div class="space-y-3">
+    <div v-if="allComments.length > 0" class="space-y-3">
       <Card
         v-for="comment in allComments"
         :key="comment.id"
@@ -112,6 +112,17 @@ const openDocument = (docId: string) => {
         </CardContent>
       </Card>
     </div>
+
+    <!-- Empty State -->
+    <Card v-else class="p-12 text-center border-dashed">
+      <div class="size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
+        <MessageSquare class="size-6" />
+      </div>
+      <h3 class="font-semibold text-base">No discussions yet</h3>
+      <p class="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+        Leave questions, notes, or field instructions on any document in your workspace.
+      </p>
+    </Card>
 
     <!-- Document Preview Modal -->
     <DocumentPreviewModal

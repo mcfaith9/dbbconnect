@@ -58,12 +58,16 @@ export const DocumentService = {
     uploadedBy: { id: string; name: string; role: UserRole }
     assignedTo?: string[]
     previewUrl?: string
+    thumbnailUrl?: string
     textContent?: string
+    docxHtml?: string
+    dataUrl?: string
+    pageCount?: number
     tags?: string[]
   }): Promise<Document> {
     const fileName = params.name.trim()
     const docType = detectDocumentType(fileName, params.mimeType || params.file?.type)
-    const size = params.size || params.file?.size || Math.floor(Math.random() * 2000000) + 500000
+    const size = params.size || params.file?.size || 0
     
     // Auto-assign: if uploaded to an employee, automatically include that employee in assignedTo
     const assigned = new Set<string>(params.assignedTo || [])
@@ -88,11 +92,14 @@ export const DocumentService = {
       isShared: params.ownerId === 'shared',
       assignedTo: Array.from(assigned),
       tags: params.tags || (docType === 'image' ? ['Site Photo'] : ['Field Document']),
-      offlineCached: false,
+      offlineCached: true, // uploaded files are cached locally in IndexedDB
+      offlineCachedAt: new Date().toISOString(),
       previewUrl: params.previewUrl,
-      thumbnailUrl: docType === 'image' ? (params.previewUrl || 'https://images.unsplash.com/photo-1541888946425-d0fbb180c5f5?w=800&auto=format&fit=crop&q=80') : undefined,
-      textContent: params.textContent || `Digital Document: ${fileName}\nUploaded by: ${params.uploadedBy.name}\nTimestamp: ${new Date().toLocaleString()}`,
-      pageCount: docType === 'pdf' ? Math.floor(Math.random() * 8) + 1 : undefined,
+      thumbnailUrl: params.thumbnailUrl || (docType === 'image' ? params.dataUrl : undefined),
+      textContent: params.textContent,
+      docxHtml: params.docxHtml,
+      dataUrl: params.dataUrl,
+      pageCount: params.pageCount,
     }
 
     return await storage.put<Document>(storage.STORES.DOCUMENTS, newDoc)

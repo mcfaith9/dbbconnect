@@ -64,7 +64,7 @@ const getBadgeVariant = (type: ActivityLog['type']) => {
     </div>
 
     <!-- Activities Table / List -->
-    <Card class="shadow-xs overflow-hidden">
+    <Card v-if="activities.length > 0" class="shadow-xs overflow-hidden">
       <div class="divide-y text-xs">
         <div
           v-for="act in activities"
@@ -103,6 +103,16 @@ const getBadgeVariant = (type: ActivityLog['type']) => {
           </span>
         </div>
       </div>
+    </Card>
+
+    <Card v-else class="p-12 text-center border-dashed">
+      <div class="size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
+        <History class="size-6" />
+      </div>
+      <h3 class="font-semibold text-base">No audit events recorded yet</h3>
+      <p class="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+        Actions performed by administrators and field workers (file uploads, folder creation, assignments) will be logged here.
+      </p>
     </Card>
   </div>
 </template>

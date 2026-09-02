@@ -71,7 +71,10 @@ export interface Document {
   offlineCachedAt?: string
   previewUrl?: string
   thumbnailUrl?: string
-  textContent?: string // For mock doc preview
+  textContent?: string
+  docxHtml?: string
+  dataUrl?: string
+  fileData?: string
   pageCount?: number
   downloadUrl?: string
 }

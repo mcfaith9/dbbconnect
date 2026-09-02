@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch } from 'vue'
 import {
   X,
   Download,
   WifiOff,
   CheckCircle2,
   MessageSquare,
-  ZoomIn,
-  ZoomOut,
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
   FileText,
   Image as ImageIcon,
   Clock,
   Send,
   Users,
   HardDriveDownload,
+  FileSpreadsheet,
 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import PdfViewer from '@/components/viewers/PdfViewer.vue'
+import DocxViewer from '@/components/viewers/DocxViewer.vue'
+import ImageViewer from '@/components/viewers/ImageViewer.vue'
+import TextViewer from '@/components/viewers/TextViewer.vue'
 import { CommentService } from '@/services/CommentService'
 import { DocumentService } from '@/services/DocumentService'
 import { ActivityService } from '@/services/ActivityService'
@@ -42,11 +42,7 @@ const emit = defineEmits<{
 const { currentUser, isAdmin } = useAuth()
 const { effectiveOnline, updatePendingCount } = useOfflineSync()
 
-const activeTab = ref<'preview' | 'comments' | 'details'>('preview')
-const zoomLevel = ref(100)
-const currentPage = ref(1)
-const totalPages = computed(() => props.document?.pageCount || 1)
-
+const activeTab = ref<'preview' | 'comments'>('preview')
 const comments = ref<DocumentComment[]>([])
 const newCommentText = ref('')
 const isPostingComment = ref(false)
@@ -61,34 +57,12 @@ watch(
   () => props.document,
   async (doc) => {
     if (doc) {
-      zoomLevel.value = 100
-      currentPage.value = 1
       activeTab.value = 'preview'
       await loadComments()
     }
   },
   { immediate: true },
 )
-
-const handleZoomIn = () => {
-  if (zoomLevel.value < 200) zoomLevel.value += 20
-}
-
-const handleZoomOut = () => {
-  if (zoomLevel.value > 60) zoomLevel.value -= 20
-}
-
-const handleResetZoom = () => {
-  zoomLevel.value = 100
-}
-
-const handlePrevPage = () => {
-  if (currentPage.value > 1) currentPage.value--
-}
-
-const handleNextPage = () => {
-  if (currentPage.value < totalPages.value) currentPage.value++
-}
 
 const handleToggleOfflineCache = async () => {
   if (!props.document || isTogglingOffline.value) return
@@ -145,13 +119,35 @@ const handlePostComment = async () => {
 
 const handleDownload = () => {
   if (!props.document) return
-  const blob = new Blob([props.document.textContent || props.document.name], {
-    type: props.document.mimeType || 'text/plain',
+  const doc = props.document
+
+  if (doc.dataUrl) {
+    const a = window.document.createElement('a')
+    a.href = doc.dataUrl
+    a.download = doc.originalName || doc.name
+    window.document.body.appendChild(a)
+    a.click()
+    window.document.body.removeChild(a)
+    return
+  }
+
+  if (doc.previewUrl) {
+    const a = window.document.createElement('a')
+    a.href = doc.previewUrl
+    a.download = doc.originalName || doc.name
+    window.document.body.appendChild(a)
+    a.click()
+    window.document.body.removeChild(a)
+    return
+  }
+
+  const blob = new Blob([doc.textContent || doc.name], {
+    type: doc.mimeType || 'text/plain',
   })
   const url = URL.createObjectURL(blob)
   const a = window.document.createElement('a')
-  a.href = props.document.previewUrl || url
-  a.download = props.document.originalName || props.document.name
+  a.href = url
+  a.download = doc.originalName || doc.name
   window.document.body.appendChild(a)
   a.click()
   window.document.body.removeChild(a)
@@ -174,6 +170,8 @@ const handleDownload = () => {
           <div class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
             <FileText v-if="document.type === 'pdf'" class="size-4 text-red-500" />
             <ImageIcon v-else-if="document.type === 'image'" class="size-4 text-blue-500" />
+            <FileText v-else-if="document.type === 'word'" class="size-4 text-blue-600" />
+            <FileSpreadsheet v-else-if="document.type === 'excel'" class="size-4 text-emerald-600" />
             <FileText v-else class="size-4" />
           </div>
           <div class="min-w-0">
@@ -193,6 +191,26 @@ const handleDownload = () => {
 
         <!-- Header Actions -->
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <!-- Mobile tab switch -->
+          <div class="flex md:hidden items-center gap-1 mr-1">
+            <Button
+              size="sm"
+              :variant="activeTab === 'preview' ? 'secondary' : 'ghost'"
+              class="h-7 text-xs px-2"
+              @click="activeTab = 'preview'"
+            >
+              Preview
+            </Button>
+            <Button
+              size="sm"
+              :variant="activeTab === 'comments' ? 'secondary' : 'ghost'"
+              class="h-7 text-xs px-2"
+              @click="activeTab = 'comments'"
+            >
+              Comments ({{ comments.length }})
+            </Button>
+          </div>
+
           <!-- Offline Cache Toggle Button -->
           <Button
             size="sm"
@@ -249,174 +267,49 @@ const handleDownload = () => {
 
       <!-- Main Content Area: Split View on Desktop -->
       <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <!-- Center / Left: Document Viewer -->
+        <!-- Center / Left: Document Viewer (Modular Viewers) -->
         <div
-          class="flex-1 flex-col bg-muted/40 overflow-hidden relative"
+          class="flex-1 flex flex-col bg-muted/40 overflow-hidden relative"
           :class="activeTab === 'preview' ? 'flex' : 'hidden md:flex'"
         >
-          <!-- Document Viewer Controls Toolbar -->
-          <div class="flex items-center justify-between px-4 py-2 border-b bg-card text-xs shrink-0">
-            <!-- Zoom Controls -->
-            <div class="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-7"
-                :disabled="zoomLevel <= 60"
-                title="Zoom Out"
-                @click="handleZoomOut"
-              >
-                <ZoomOut class="size-3.5" />
-              </Button>
-              <span class="w-12 text-center text-muted-foreground font-mono">{{ zoomLevel }}%</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-7"
-                :disabled="zoomLevel >= 200"
-                title="Zoom In"
-                @click="handleZoomIn"
-              >
-                <ZoomIn class="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-7 text-muted-foreground"
-                title="Reset Zoom"
-                @click="handleResetZoom"
-              >
-                <RotateCcw class="size-3.5" />
-              </Button>
-            </div>
+          <!-- PDF Viewer -->
+          <PdfViewer
+            v-if="document.type === 'pdf'"
+            :data-url="document.dataUrl"
+            :pdf-url="document.previewUrl"
+            :initial-page="1"
+          />
 
-            <!-- Page Navigation (for PDF / multi-page) -->
-            <div v-if="document.type === 'pdf'" class="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-7"
-                :disabled="currentPage <= 1"
-                @click="handlePrevPage"
-              >
-                <ChevronLeft class="size-3.5" />
-              </Button>
-              <span class="text-muted-foreground">
-                Page <span class="font-medium text-foreground">{{ currentPage }}</span> of {{ totalPages }}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-7"
-                :disabled="currentPage >= totalPages"
-                @click="handleNextPage"
-              >
-                <ChevronRight class="size-3.5" />
-              </Button>
-            </div>
+          <!-- DOCX Viewer -->
+          <DocxViewer
+            v-else-if="document.type === 'word'"
+            :html-content="document.docxHtml"
+            :text-content="document.textContent"
+            :data-url="document.dataUrl"
+            :document-name="document.name"
+          />
 
-            <!-- Mobile View Tab Switcher -->
-            <div class="flex md:hidden items-center gap-1">
-              <Button
-                size="sm"
-                :variant="activeTab === 'preview' ? 'secondary' : 'ghost'"
-                class="h-7 text-xs px-2"
-                @click="activeTab = 'preview'"
-              >
-                Preview
-              </Button>
-              <Button
-                size="sm"
-                :variant="activeTab === 'comments' ? 'secondary' : 'ghost'"
-                class="h-7 text-xs px-2 gap-1"
-                @click="activeTab = 'comments'"
-              >
-                Comments ({{ comments.length }})
-              </Button>
-            </div>
-          </div>
+          <!-- Image Viewer -->
+          <ImageViewer
+            v-else-if="document.type === 'image'"
+            :image-url="document.dataUrl || document.previewUrl || document.thumbnailUrl"
+            :alt-text="document.name"
+          />
 
-          <!-- Document Canvas / Viewer Stage -->
-          <div class="flex-1 overflow-auto p-4 sm:p-8 flex items-center justify-center">
-            <!-- Image Document Preview -->
-            <div
-              v-if="document.type === 'image'"
-              class="transition-transform duration-100 flex items-center justify-center"
-              :style="{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'center center' }"
-            >
-              <img
-                :src="document.previewUrl || document.thumbnailUrl || 'https://images.unsplash.com/photo-1541888946425-d0fbb180c5f5?w=1600&auto=format&fit=crop&q=80'"
-                :alt="document.name"
-                class="max-h-[65vh] max-w-full rounded-lg shadow-lg border object-contain bg-background"
-              />
-            </div>
-
-            <!-- PDF Document Sheet Preview -->
-            <div
-              v-else-if="document.type === 'pdf'"
-              class="transition-transform duration-100 w-full max-w-2xl bg-card rounded-lg shadow-lg border p-6 sm:p-8 text-foreground min-h-[550px] flex flex-col justify-between"
-              :style="{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }"
-            >
-              <div>
-                <!-- Simulated PDF Document Header -->
-                <div class="flex items-center justify-between border-b pb-4 mb-6">
-                  <div class="flex items-center gap-2">
-                    <div class="size-7 rounded bg-primary text-primary-foreground font-black text-xs flex items-center justify-center">
-                      DBB
-                    </div>
-                    <span class="font-bold text-xs tracking-wider uppercase text-muted-foreground">
-                      Field Management System &bull; Doc ID: {{ document.id }}
-                    </span>
-                  </div>
-                  <Badge variant="outline" class="text-[10px]">
-                    Page {{ currentPage }} / {{ totalPages }}
-                  </Badge>
-                </div>
-
-                <!-- PDF Content -->
-                <h1 class="text-lg sm:text-xl font-bold tracking-tight mb-4 text-foreground">
-                  {{ document.name }}
-                </h1>
-                <div class="text-xs sm:text-sm text-foreground/90 whitespace-pre-line leading-relaxed font-sans">
-                  {{ document.textContent || 'Digital Field Document content rendered via DBB Connect Engine.' }}
-                </div>
-              </div>
-
-              <!-- Simulated PDF Document Footer -->
-              <div class="pt-6 mt-8 border-t text-[11px] text-muted-foreground flex items-center justify-between">
-                <span>Certified Digital Copy &bull; DBB Connect</span>
-                <span>Page {{ currentPage }} of {{ totalPages }}</span>
-              </div>
-            </div>
-
-            <!-- Office / Excel / Word / Other Preview -->
-            <div
-              v-else
-              class="max-w-md w-full bg-card rounded-xl shadow-lg border p-6 text-center space-y-4"
-            >
-              <div class="size-16 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
-                <FileText class="size-8" />
-              </div>
-              <div>
-                <h3 class="font-semibold text-base">{{ document.name }}</h3>
-                <p class="text-xs text-muted-foreground mt-1">
-                  {{ document.mimeType }} &bull; {{ document.sizeFormatted }}
-                </p>
-              </div>
-              <div class="bg-muted p-4 rounded-lg text-left text-xs whitespace-pre-line leading-relaxed">
-                {{ document.textContent || 'Standard digital document format.' }}
-              </div>
-              <Button class="w-full gap-2" @click="handleDownload">
-                <Download class="size-4" />
-                Download to Open Locally
-              </Button>
-            </div>
-          </div>
+          <!-- Text / CSV / Spreadsheet / Generic Viewer -->
+          <TextViewer
+            v-else
+            :content="document.textContent"
+            :mime-type="document.mimeType"
+            :document-name="document.name"
+            :data-url="document.dataUrl"
+            @download="handleDownload"
+          />
         </div>
 
         <!-- Right Side: Comments & Document Collaboration Panel -->
         <aside
-          class="w-full md:w-80 lg:w-96 border-l bg-card flex-col shrink-0"
+          class="w-full md:w-80 lg:w-96 border-l bg-card flex flex-col shrink-0"
           :class="activeTab === 'comments' ? 'flex' : 'hidden md:flex'"
         >
           <!-- Panel Header -->

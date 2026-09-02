@@ -257,8 +257,7 @@ const handleUploadFiles = async (files: any[]) => {
   for (const file of files) {
     const uploaded = await DocumentService.uploadDocument({
       name: file.name,
-      originalName: file.name,
-      file: file.file,
+      originalName: file.originalName || file.name,
       mimeType: file.mimeType,
       size: file.size,
       folderId: currentFolderId.value,
@@ -269,6 +268,11 @@ const handleUploadFiles = async (files: any[]) => {
         role: currentUser.value.role,
       },
       previewUrl: file.previewUrl,
+      thumbnailUrl: file.thumbnailUrl,
+      textContent: file.textContent,
+      docxHtml: file.docxHtml,
+      dataUrl: file.dataUrl,
+      pageCount: file.pageCount,
       assignedTo: [selectedEmployee.value.id],
     })
 
@@ -375,10 +379,28 @@ const handleDeleteDoc = async (doc: DocumentType) => {
 }
 
 const handleDownload = (doc: DocumentType) => {
+  if (doc.dataUrl) {
+    const a = window.document.createElement('a')
+    a.href = doc.dataUrl
+    a.download = doc.originalName || doc.name
+    window.document.body.appendChild(a)
+    a.click()
+    window.document.body.removeChild(a)
+    return
+  }
+  if (doc.previewUrl) {
+    const a = window.document.createElement('a')
+    a.href = doc.previewUrl
+    a.download = doc.originalName || doc.name
+    window.document.body.appendChild(a)
+    a.click()
+    window.document.body.removeChild(a)
+    return
+  }
   const blob = new Blob([doc.textContent || doc.name], { type: doc.mimeType || 'text/plain' })
   const url = URL.createObjectURL(blob)
   const a = window.document.createElement('a')
-  a.href = doc.previewUrl || url
+  a.href = url
   a.download = doc.originalName || doc.name
   window.document.body.appendChild(a)
   a.click()

@@ -7,11 +7,8 @@ import {
   RefreshCw,
   Sun,
   Moon,
-  Users,
-  Shield,
-  UserCheck,
   LogOut,
-  ChevronDown,
+  User as UserIcon,
 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -27,10 +24,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/composables/useAuth'
 import { useOfflineSync } from '@/composables/useOfflineSync'
-import type { User } from '@/types'
 
 const router = useRouter()
-const { currentUser, allUsers, isAdmin, loginAs, logout } = useAuth()
+const { currentUser, isAdmin, logout } = useAuth()
 const {
   effectiveOnline,
   isSimulatedOffline,
@@ -49,15 +45,6 @@ const toggleDarkMode = () => {
     document.documentElement.classList.add('dark')
   } else {
     document.documentElement.classList.remove('dark')
-  }
-}
-
-const handleSwitchUser = async (user: User) => {
-  await loginAs(user)
-  if (user.role === 'admin') {
-    router.push('/field-manager')
-  } else {
-    router.push('/my-files')
   }
 }
 
@@ -146,57 +133,16 @@ const handleLogout = () => {
       </div>
     </div>
 
-    <!-- Right: Quick Demo User Switcher & User Profile Menu -->
+    <!-- Right: Theme Switcher & User Profile Menu -->
     <div class="flex items-center gap-1.5 sm:gap-2">
-      <!-- Fast Role Switcher Dropdown (Crucial for testing Admin vs Field Employee!) -->
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button variant="outline" size="sm" class="h-8 text-xs gap-1.5 hidden sm:inline-flex">
-            <Users class="size-3.5 text-primary" />
-            <span class="font-medium truncate max-w-[100px]">{{ currentUser?.name }}</span>
-            <ChevronDown class="size-3 opacity-60" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-64">
-          <DropdownMenuLabel class="text-xs font-semibold">
-            Switch Active User / Role
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          
-          <div class="px-2 py-1.5 text-[11px] text-muted-foreground font-medium">
-            ADMINISTRATOR
-          </div>
-          <DropdownMenuItem
-            v-for="user in allUsers.filter((u) => u.role === 'admin')"
-            :key="user.id"
-            :class="['gap-2 cursor-pointer', currentUser?.id === user.id ? 'bg-accent font-medium' : '']"
-            @click="handleSwitchUser(user)"
-          >
-            <Shield class="size-4 text-primary shrink-0" />
-            <div class="flex flex-col">
-              <span class="text-xs">{{ user.name }}</span>
-              <span class="text-[10px] text-muted-foreground">{{ user.position }}</span>
-            </div>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-          <div class="px-2 py-1.5 text-[11px] text-muted-foreground font-medium">
-            FIELD EMPLOYEES
-          </div>
-          <DropdownMenuItem
-            v-for="user in allUsers.filter((u) => u.role === 'employee')"
-            :key="user.id"
-            :class="['gap-2 cursor-pointer', currentUser?.id === user.id ? 'bg-accent font-medium' : '']"
-            @click="handleSwitchUser(user)"
-          >
-            <UserCheck class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <div class="flex flex-col">
-              <span class="text-xs">{{ user.name }}</span>
-              <span class="text-[10px] text-muted-foreground">{{ user.position }}</span>
-            </div>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <!-- Active User Info Pill (Display Only) -->
+      <div
+        v-if="currentUser"
+        class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/50 border text-xs text-muted-foreground"
+      >
+        <UserIcon class="size-3.5 text-primary" />
+        <span class="font-medium text-foreground truncate max-w-[120px]">{{ currentUser.name }}</span>
+      </div>
 
       <!-- Theme Switcher -->
       <Button
@@ -216,7 +162,7 @@ const handleLogout = () => {
           <Button variant="ghost" size="icon" class="size-8 rounded-full border">
             <Avatar class="size-7">
               <AvatarFallback class="bg-primary/10 text-primary text-xs font-bold">
-                {{ currentUser?.name.split(' ').map((n) => n[0]).join('') }}
+                {{ currentUser?.name ? currentUser.name.split(' ').map((n) => n[0]).join('') : 'U' }}
               </AvatarFallback>
             </Avatar>
           </Button>

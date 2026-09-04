@@ -268,7 +268,7 @@ const navigateToEmployee = (employeeId: string) => {
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-foreground truncate">{{ act.actionTitle }}</p>
                 <p class="text-muted-foreground text-[11px] truncate">{{ act.description }}</p>
-                <span class="text-[10px] text-muted-foreground/70">
+                <span class="text-[10px] text-muted-foreground">
                   {{ new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
                 </span>
               </div>

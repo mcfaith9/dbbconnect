@@ -65,14 +65,14 @@ const handleQuickLogin = async (account: any) => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center p-4 bg-muted/40 relative">
-    <Card class="w-full max-w-lg shadow-xl border bg-card/95 backdrop-blur">
-      <CardHeader class="space-y-2 text-center pb-4 pt-6">
-        <div class="size-14 rounded-2xl bg-primary text-primary-foreground font-black text-2xl flex items-center justify-center mx-auto shadow-md ring-4 ring-primary/10">
-          FH
+  <div class="min-h-screen flex items-center justify-center p-4 bg-muted/30 relative">
+    <Card class="w-full max-w-lg border bg-card shadow-sm">
+      <CardHeader class="space-y-3 text-center pb-4 pt-6">
+        <div class="size-12 rounded-xl bg-primary text-primary-foreground font-black flex items-center justify-center mx-auto shadow-xs overflow-hidden">
+          <img src="@/assets/img/dbblogo.png" alt="DBB Connect" class="size-12 object-contain" />
         </div>
         <div>
-          <CardTitle class="text-2xl font-bold tracking-tight text-foreground">DBB Connect</CardTitle>
+          <CardTitle class="text-xl sm:text-2xl font-bold tracking-tight text-foreground">DBB Connect</CardTitle>
           <CardDescription class="text-xs text-muted-foreground mt-1">
             Digital Field File Management &amp; Offline Document Access
           </CardDescription>

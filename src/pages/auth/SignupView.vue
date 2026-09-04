@@ -24,15 +24,17 @@ const handleRegister = async () => {
 
 <template>
   <div class="min-h-screen flex items-center justify-center p-4 bg-muted/30">
-    <Card class="w-full max-w-md shadow-xl border">
-      <CardHeader class="space-y-2 text-center pb-4">
-        <div class="size-12 rounded-xl bg-primary text-primary-foreground font-black text-xl flex items-center justify-center mx-auto shadow-md">
-          FH
+    <Card class="w-full max-w-md border bg-card shadow-sm">
+      <CardHeader class="space-y-3 text-center pb-4 pt-6">
+        <div class="size-12 rounded-xl bg-primary text-primary-foreground font-black flex items-center justify-center mx-auto shadow-xs overflow-hidden">
+          <img src="@/assets/img/dbblogo.png" alt="DBB Connect" class="size-12 object-contain" />
         </div>
-        <CardTitle class="text-xl font-bold">Register Field Personnel</CardTitle>
-        <CardDescription>
-          Create a new user account for DBB Connect.
-        </CardDescription>
+        <div>
+          <CardTitle class="text-xl font-bold tracking-tight text-foreground">Register Field Personnel</CardTitle>
+          <CardDescription class="text-xs text-muted-foreground mt-1">
+            Create a new user account for DBB Connect.
+          </CardDescription>
+        </div>
       </CardHeader>
 
       <CardContent class="space-y-4">

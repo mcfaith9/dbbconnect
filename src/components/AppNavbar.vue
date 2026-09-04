@@ -8,7 +8,6 @@ import {
   Sun,
   Moon,
   LogOut,
-  User as UserIcon,
 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,14 +36,21 @@ const {
   toggleSimulatedOffline,
 } = useOfflineSync()
 
-const isDark = ref(typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
+const isDark = ref(
+  typeof document !== 'undefined' &&
+    (localStorage.getItem('theme') === 'dark' ||
+      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches) ||
+      document.documentElement.classList.contains('dark')),
+)
 
 const toggleDarkMode = () => {
   isDark.value = !isDark.value
   if (isDark.value) {
     document.documentElement.classList.add('dark')
+    localStorage.setItem('theme', 'dark')
   } else {
     document.documentElement.classList.remove('dark')
+    localStorage.setItem('theme', 'light')
   }
 }
 
@@ -61,8 +67,8 @@ const handleLogout = () => {
       <SidebarTrigger class="-ml-1" />
       <div class="flex items-center gap-2">
         <span class="font-bold text-sm sm:text-base tracking-tight text-foreground flex items-center gap-1.5">
-          <span class="size-6 rounded bg-primary text-primary-foreground font-black text-xs flex items-center justify-center">
-            FH
+          <span class="size-6 rounded bg-primary text-primary-foreground font-black text-[10px] flex items-center justify-center">
+            DBB
           </span>
           <span>DBB Connect</span>
         </span>
@@ -135,15 +141,6 @@ const handleLogout = () => {
 
     <!-- Right: Theme Switcher & User Profile Menu -->
     <div class="flex items-center gap-1.5 sm:gap-2">
-      <!-- Active User Info Pill (Display Only) -->
-      <div
-        v-if="currentUser"
-        class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/50 border text-xs text-muted-foreground"
-      >
-        <UserIcon class="size-3.5 text-primary" />
-        <span class="font-medium text-foreground truncate max-w-[120px]">{{ currentUser.name }}</span>
-      </div>
-
       <!-- Theme Switcher -->
       <Button
         variant="ghost"

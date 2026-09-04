@@ -308,8 +308,43 @@ const handleDownload = (doc: DocumentType) => {
       </div>
     </div>
 
+    <!-- Empty State -->
+    <div
+      v-if="filteredFolders.length === 0 && filteredDocuments.length === 0"
+      class="border-2 border-dashed rounded-xl p-12 text-center space-y-3 bg-muted/10 mt-2"
+    >
+      <div class="size-12 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
+        <FolderSync class="size-6" />
+      </div>
+      <div>
+        <h4 class="font-semibold text-sm">
+          {{ searchQuery ? 'No matching shared files found' : 'No shared files in this folder' }}
+        </h4>
+        <p class="text-xs text-muted-foreground mt-0.5">
+          {{
+            searchQuery
+              ? `No documents or folders match "${searchQuery}". Try clearing your search filter.`
+              : 'Shared documents are accessible across all project team members.'
+          }}
+        </p>
+      </div>
+      <div class="flex items-center justify-center gap-2 pt-2">
+        <Button v-if="searchQuery" variant="outline" size="sm" class="text-xs" @click="searchQuery = ''">
+          Clear Search
+        </Button>
+        <template v-else-if="isAdmin">
+          <Button size="sm" class="gap-1.5 text-xs" @click="isUploadModalOpen = true">
+            <Upload class="size-3.5" /> Upload File
+          </Button>
+          <Button size="sm" variant="outline" class="gap-1.5 text-xs" @click="isNewFolderModalOpen = true">
+            <FolderPlus class="size-3.5" /> New Folder
+          </Button>
+        </template>
+      </div>
+    </div>
+
     <!-- Documents Section -->
-    <div class="space-y-2.5 pt-2">
+    <div v-else-if="filteredDocuments.length > 0" class="space-y-2.5 pt-2">
       <h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Shared Documents ({{ filteredDocuments.length }})
       </h3>

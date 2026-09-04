@@ -35,8 +35,6 @@ interface NavItem {
   title: string
   url: string
   icon: any
-  badge?: string
-  isMain?: boolean
 }
 
 // Admin Navigation Menu
@@ -50,8 +48,6 @@ const adminNavItems = computed<NavItem[]>(() => [
     title: 'Field Manager',
     url: '/field-manager',
     icon: Users,
-    badge: 'MAIN',
-    isMain: true,
   },
   {
     title: 'Shared Documents',
@@ -81,8 +77,6 @@ const employeeNavItems = computed<NavItem[]>(() => [
     title: 'My Files',
     url: '/my-files',
     icon: FolderTree,
-    badge: 'MAIN',
-    isMain: true,
   },
   {
     title: 'Shared Documents',
@@ -143,43 +137,24 @@ const navigateTo = (url: string) => {
             >
               <SidebarMenuButton
                 :is-active="isCurrentRoute(item.url)"
-                class="w-full justify-between gap-3 text-sm py-2 px-3 rounded-lg transition-colors cursor-pointer"
+                class="w-full justify-start gap-2.5 text-sm py-2 px-3 rounded-lg transition-colors cursor-pointer"
                 :class="[
                   isCurrentRoute(item.url)
                     ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
                     : 'text-foreground/80 hover:bg-accent hover:text-foreground',
-                  item.isMain && !isCurrentRoute(item.url)
-                    ? 'border border-primary/25 bg-primary/5 text-primary'
-                    : '',
                 ]"
                 @click="navigateTo(item.url)"
               >
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <component
-                    :is="item.icon"
-                    :class="[
-                      'size-4 shrink-0',
-                      isCurrentRoute(item.url)
-                        ? ''
-                        : item.isMain
-                          ? 'text-primary'
-                          : 'text-muted-foreground',
-                    ]"
-                  />
-                  <span class="truncate">{{ item.title }}</span>
-                </div>
-
-                <span
-                  v-if="item.badge"
+                <component
+                  :is="item.icon"
                   :class="[
-                    'text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider shrink-0',
+                    'size-4 shrink-0',
                     isCurrentRoute(item.url)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-primary text-primary-foreground',
+                      ? 'text-primary-foreground'
+                      : 'text-muted-foreground',
                   ]"
-                >
-                  {{ item.badge }}
-                </span>
+                />
+                <span class="truncate">{{ item.title }}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

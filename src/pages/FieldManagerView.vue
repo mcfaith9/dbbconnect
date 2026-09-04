@@ -436,8 +436,27 @@ const handleDownload = (doc: DocumentType) => {
         </div>
       </div>
 
+      <!-- Empty State if no employees match search -->
+      <div
+        v-if="filteredEmployees.length === 0"
+        class="border-2 border-dashed rounded-xl p-12 text-center space-y-3 bg-muted/10"
+      >
+        <div class="size-12 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
+          <Users class="size-6" />
+        </div>
+        <div>
+          <h4 class="font-semibold text-sm">No field personnel found</h4>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            No employees match the filter criteria "{{ searchQuery }}".
+          </p>
+        </div>
+        <Button size="sm" variant="outline" class="text-xs mt-2" @click="searchQuery = ''">
+          Clear Search Filter
+        </Button>
+      </div>
+
       <!-- Employee Cards Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card
           v-for="emp in filteredEmployees"
           :key="emp.id"

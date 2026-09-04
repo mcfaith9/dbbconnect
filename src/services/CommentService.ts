@@ -1,4 +1,5 @@
 import { storage } from './storage'
+import { api } from './api'
 import type { DocumentComment, User } from '@/types'
 
 export const CommentService = {
@@ -7,6 +8,20 @@ export const CommentService = {
   },
 
   async getCommentsByDocument(documentId: string): Promise<DocumentComment[]> {
+    try {
+      const isOnline = await api.checkHealth()
+      if (isOnline) {
+        const res = await api.get<DocumentComment[]>('/comments', { document_id: documentId })
+        if (res.success && Array.isArray(res.data)) {
+          for (const c of res.data) {
+            await storage.put<DocumentComment>(storage.STORES.COMMENTS, c)
+          }
+        }
+      }
+    } catch {
+      // Local fallback
+    }
+
     const all = await this.getAllComments()
     return all
       .filter((c) => c.documentId === documentId)
@@ -32,6 +47,17 @@ export const CommentService = {
     }
 
     await storage.put<DocumentComment>(storage.STORES.COMMENTS, newComment)
+
+    // Sync to API if online
+    if (!params.isOffline) {
+      api.post('/comments', {
+        documentId: params.documentId,
+        content: newComment.content,
+        authorId: params.user.id,
+        authorName: params.user.name,
+        authorRole: params.user.role,
+      }).catch(() => {})
+    }
 
     // If created while offline, also register into sync queue
     if (params.isOffline) {

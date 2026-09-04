@@ -9,7 +9,7 @@ import {
   HardDriveDownload,
   Upload,
   ArrowRight,
-  CheckCircle2,
+  CheckCircle2, 
   FolderSync,
   MessageSquare,
   ShieldCheck,

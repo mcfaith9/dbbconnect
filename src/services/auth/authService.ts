@@ -1,6 +1,7 @@
 import type { AuthUser, User, UserRole } from '@/types'
 import { UserService } from '@/services/UserService'
 import { storage } from '@/services/storage'
+import { api } from '@/services/api'
 
 const AUTH_STORAGE_KEY = 'dbb_fieldhub_auth_session'
 
@@ -131,31 +132,70 @@ export const AuthService = {
   /**
    * Clears the current authenticated session
    */
-  clearSession(): void {
+  async clearSession(): Promise<void> {
     if (typeof window === 'undefined') return
-    window.localStorage.removeItem(AUTH_STORAGE_KEY)
+    try {
+      if (api.getToken()) {
+        await api.post('/logout')
+      }
+    } catch {
+      // Ignore network errors during logout
+    } finally {
+      api.clearToken()
+      window.localStorage.removeItem(AUTH_STORAGE_KEY)
+    }
   },
 
   /**
-   * Authenticate against local test accounts & registered users
+   * Authenticate against Laravel Sanctum API, with local test accounts & IndexedDB fallback
    */
   async login(
     usernameInput: string,
     passwordInput: string
   ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-    const cleanUser = usernameInput.trim().toLowerCase()
+    const cleanUser = usernameInput.trim()
     const cleanPass = passwordInput.trim()
 
     if (!cleanUser || !cleanPass) {
       return { success: false, error: 'Please enter both username and password' }
     }
 
-    // 1. Check official test accounts
+    // Attempt Laravel Sanctum API authentication first
+    try {
+      const apiRes = await api.post('/login', {
+        username: cleanUser,
+        password: cleanPass,
+      })
+
+      if (apiRes.success && apiRes.user && apiRes.token) {
+        api.setToken(apiRes.token)
+        const authUser: AuthUser = {
+          id: apiRes.user.id,
+          username: apiRes.user.username || apiRes.user.name,
+          displayName: apiRes.user.displayName || apiRes.user.name,
+          name: apiRes.user.name,
+          email: apiRes.user.email,
+          role: apiRes.user.role,
+          position: apiRes.user.position || 'Field Personnel',
+          department: apiRes.user.department || 'Field Operations',
+          phone: apiRes.user.phone,
+          assignedProject: apiRes.user.assignedProject,
+          avatar: apiRes.user.avatar,
+        }
+        this.saveSession(authUser, apiRes.token)
+        return { success: true, user: authUser }
+      }
+    } catch (e) {
+      console.warn('Backend API login request encountered error, trying local fallback...', e)
+    }
+
+    // Fallback 1: Check official test accounts
+    const lowerUser = cleanUser.toLowerCase()
     const matchedTest = TEST_ACCOUNTS.find((acc) => {
-      const matchUsername = acc.username.toLowerCase() === cleanUser
-      const matchDisplayName = acc.displayName.toLowerCase() === cleanUser
-      const matchName = acc.name.toLowerCase() === cleanUser
-      const matchEmail = acc.email.toLowerCase() === cleanUser
+      const matchUsername = acc.username.toLowerCase() === lowerUser
+      const matchDisplayName = acc.displayName.toLowerCase() === lowerUser
+      const matchName = acc.name.toLowerCase() === lowerUser
+      const matchEmail = acc.email.toLowerCase() === lowerUser
       return matchUsername || matchDisplayName || matchName || matchEmail
     })
 
@@ -180,18 +220,17 @@ export const AuthService = {
       }
     }
 
-    // 2. Check IndexedDB registered users (mock fallback for users registered via SignupView)
+    // Fallback 2: Check IndexedDB registered users
     try {
       const allUsers = await UserService.getAllUsers()
       const foundUser = allUsers.find(
         (u) =>
-          (u.username && u.username.toLowerCase() === cleanUser) ||
-          u.name.toLowerCase() === cleanUser ||
-          u.email.toLowerCase() === cleanUser
+          (u.username && u.username.toLowerCase() === lowerUser) ||
+          u.name.toLowerCase() === lowerUser ||
+          u.email.toLowerCase() === lowerUser
       )
 
       if (foundUser) {
-        // Registered demo accounts accept 'ilovedbb' or 'password'
         if (cleanPass === 'ilovedbb' || cleanPass === 'password' || cleanPass.length >= 4) {
           const authUser: AuthUser = {
             id: foundUser.id,
@@ -246,7 +285,43 @@ export const AuthService = {
     email: string,
     _role: UserRole = 'employee',
     position = 'Field Engineer'
-  ): Promise<{ success: boolean; user: AuthUser }> {
+  ): Promise<{ success: boolean; user: AuthUser; error?: string }> {
+    // Attempt Laravel API registration first
+    try {
+      const apiRes = await api.post('/register', {
+        name,
+        email,
+        position,
+        department: 'Field Operations',
+      })
+
+      if (apiRes.success && apiRes.user && apiRes.token) {
+        api.setToken(apiRes.token)
+        const authUser: AuthUser = {
+          id: apiRes.user.id,
+          username: apiRes.user.username || apiRes.user.name,
+          displayName: apiRes.user.displayName || apiRes.user.name,
+          name: apiRes.user.name,
+          email: apiRes.user.email,
+          role: apiRes.user.role,
+          position: apiRes.user.position || position,
+          department: apiRes.user.department || 'Field Operations',
+          phone: apiRes.user.phone,
+          assignedProject: apiRes.user.assignedProject,
+        }
+        this.saveSession(authUser, apiRes.token)
+        // Also sync to local storage for offline continuity
+        await storage.init()
+        await UserService.updateUser({
+          ...authUser,
+        })
+        return { success: true, user: authUser }
+      }
+    } catch (e) {
+      console.warn('Backend registration failed, using local registration fallback...', e)
+    }
+
+    // Fallback: Local IndexedDB registration
     const newId = `employee-${Date.now()}`
     const newUser: User = {
       id: newId,

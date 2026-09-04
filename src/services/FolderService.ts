@@ -1,8 +1,23 @@
 import { storage } from './storage'
+import { api } from './api'
 import type { Folder, BreadcrumbCrumb } from '@/types'
 
 export const FolderService = {
   async getAllFolders(): Promise<Folder[]> {
+    // Attempt remote sync if API is available
+    try {
+      const isOnline = await api.checkHealth()
+      if (isOnline) {
+        const res = await api.get<Folder[]>('/folders')
+        if (res.success && Array.isArray(res.data)) {
+          for (const f of res.data) {
+            await storage.put<Folder>(storage.STORES.FOLDERS, f)
+          }
+        }
+      }
+    } catch {
+      // Local fallback
+    }
     return await storage.getAll<Folder>(storage.STORES.FOLDERS)
   },
 
@@ -36,7 +51,14 @@ export const FolderService = {
       color: params.color || '#2563eb',
     }
 
-    return await storage.put<Folder>(storage.STORES.FOLDERS, newFolder)
+    const saved = await storage.put<Folder>(storage.STORES.FOLDERS, newFolder)
+    api.post('/folders', {
+      name: newFolder.name,
+      parentId: newFolder.parentId,
+      ownerId: newFolder.ownerId,
+      color: newFolder.color,
+    }).catch(() => {})
+    return saved
   },
 
   async renameFolder(id: string, newName: string): Promise<Folder | null> {
@@ -44,7 +66,9 @@ export const FolderService = {
     if (!folder) return null
     folder.name = newName.trim()
     folder.updatedAt = new Date().toISOString()
-    return await storage.put<Folder>(storage.STORES.FOLDERS, folder)
+    const saved = await storage.put<Folder>(storage.STORES.FOLDERS, folder)
+    api.put(`/folders/${id}`, { name: folder.name }).catch(() => {})
+    return saved
   },
 
   async moveFolder(id: string, targetParentId: string | null): Promise<Folder | null> {
@@ -54,7 +78,9 @@ export const FolderService = {
     if (id === targetParentId) return null
     folder.parentId = targetParentId
     folder.updatedAt = new Date().toISOString()
-    return await storage.put<Folder>(storage.STORES.FOLDERS, folder)
+    const saved = await storage.put<Folder>(storage.STORES.FOLDERS, folder)
+    api.put(`/folders/${id}`, { parentId: targetParentId }).catch(() => {})
+    return saved
   },
 
   async deleteFolder(id: string): Promise<void> {
@@ -77,6 +103,7 @@ export const FolderService = {
     for (const folderId of folderIdsToDelete) {
       await storage.delete(storage.STORES.FOLDERS, folderId)
     }
+    api.delete(`/folders/${id}`).catch(() => {})
   },
 
   async getFolderPath(folderId: string | null, ownerId: string, basePath = '/field-manager'): Promise<BreadcrumbCrumb[]> {

@@ -464,25 +464,20 @@ const handleDownload = (doc: DocumentType) => {
           @click="openEmployeeWorkspace(emp)"
         >
           <CardHeader class="pb-3">
-            <div class="flex items-start justify-between">
-              <div class="flex items-center gap-3">
-                <Avatar class="size-12 border-2 border-primary/20 group-hover:border-primary transition-colors">
-                  <AvatarFallback class="bg-primary/10 text-primary font-bold text-base">
-                    {{ emp.name.split(' ').map((n) => n[0]).join('') }}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <CardTitle class="text-base font-bold group-hover:text-primary transition-colors">
-                    {{ emp.name }}
-                  </CardTitle>
-                  <CardDescription class="text-xs font-medium text-muted-foreground">
-                    {{ emp.position }}
-                  </CardDescription>
-                </div>
+            <div class="flex items-center gap-3">
+              <Avatar class="size-11 border-2 border-primary/20 group-hover:border-primary transition-colors">
+                <AvatarFallback class="bg-primary/10 text-primary font-bold text-sm">
+                  {{ emp.name.split(' ').map((n) => n[0]).join('') }}
+                </AvatarFallback>
+              </Avatar>
+              <div class="min-w-0">
+                <CardTitle class="text-base font-bold group-hover:text-primary transition-colors truncate">
+                  {{ emp.name }}
+                </CardTitle>
+                <CardDescription class="text-xs font-medium text-muted-foreground truncate">
+                  {{ emp.position }}
+                </CardDescription>
               </div>
-              <Badge variant="outline" class="text-[10px]">
-                Active
-              </Badge>
             </div>
           </CardHeader>
 
@@ -501,7 +496,7 @@ const handleDownload = (doc: DocumentType) => {
             </div>
 
             <!-- Workspace Action Button -->
-            <Button class="w-full gap-2 text-xs h-9 group-hover:bg-primary transition-colors">
+            <Button variant="outline" class="w-full gap-2 text-xs h-9 group-hover:border-primary group-hover:text-primary transition-colors">
               <FolderOpen class="size-3.5" />
               <span>Open Employee Workspace</span>
               <ChevronRight class="size-3.5 ml-auto" />

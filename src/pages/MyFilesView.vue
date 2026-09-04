@@ -195,15 +195,10 @@ const handleDownload = (doc: DocumentType) => {
     <!-- Header Banner -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border rounded-xl p-5 shadow-xs">
       <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <FolderTree class="size-6 text-primary" />
-            My Field Files
-          </h1>
-          <Badge variant="secondary">
-            {{ currentUser?.name }}
-          </Badge>
-        </div>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+          <FolderTree class="size-6 text-primary" />
+          My Field Files
+        </h1>
         <p class="text-xs sm:text-sm text-muted-foreground mt-0.5">
           Access documents, permits, project drawings, and photos assigned to you.
         </p>

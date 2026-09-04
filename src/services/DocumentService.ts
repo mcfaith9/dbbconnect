@@ -1,4 +1,5 @@
 import { storage } from './storage'
+import { api } from './api'
 import type { Document, DocumentType, UserRole } from '@/types'
 
 function formatBytes(bytes: number, decimals = 1): string {
@@ -22,6 +23,20 @@ function detectDocumentType(fileName: string, mimeType?: string): DocumentType {
 
 export const DocumentService = {
   async getAllDocuments(): Promise<Document[]> {
+    // Attempt remote sync if Laravel API is available
+    try {
+      const isOnline = await api.checkHealth()
+      if (isOnline) {
+        const res = await api.get<Document[]>('/documents')
+        if (res.success && Array.isArray(res.data)) {
+          for (const doc of res.data) {
+            await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('API sync failed, continuing with local cache', e)
+    }
     return await storage.getAll<Document>(storage.STORES.DOCUMENTS)
   },
 
@@ -102,7 +117,50 @@ export const DocumentService = {
       pageCount: params.pageCount,
     }
 
-    return await storage.put<Document>(storage.STORES.DOCUMENTS, newDoc)
+    const savedDoc = await storage.put<Document>(storage.STORES.DOCUMENTS, newDoc)
+
+    // Sync to Laravel API if connected
+    try {
+      const isOnline = await api.checkHealth()
+      if (isOnline) {
+        if (params.file) {
+          const formData = new FormData()
+          formData.append('file', params.file)
+          formData.append('name', fileName)
+          formData.append('originalName', params.originalName || fileName)
+          formData.append('ownerId', params.ownerId)
+          if (params.folderId) formData.append('folderId', params.folderId)
+          if (params.previewUrl) formData.append('previewUrl', params.previewUrl)
+          if (params.thumbnailUrl) formData.append('thumbnailUrl', params.thumbnailUrl)
+          if (params.textContent) formData.append('textContent', params.textContent)
+          if (params.tags) {
+            params.tags.forEach((t, i) => formData.append(`tags[${i}]`, t))
+          }
+          if (params.assignedTo) {
+            params.assignedTo.forEach((uid, i) => formData.append(`assignedTo[${i}]`, uid))
+          }
+          api.post('/documents', formData).catch(() => {})
+        } else {
+          api.post('/documents', {
+            name: fileName,
+            originalName: params.originalName || fileName,
+            mimeType: newDoc.mimeType,
+            size: newDoc.size,
+            folderId: params.folderId,
+            ownerId: params.ownerId,
+            tags: newDoc.tags,
+            previewUrl: params.previewUrl,
+            thumbnailUrl: params.thumbnailUrl,
+            textContent: params.textContent,
+            assignedTo: Array.from(assigned),
+          }).catch(() => {})
+        }
+      }
+    } catch {
+      // Keep local copy safely
+    }
+
+    return savedDoc
   },
 
   async renameDocument(id: string, newName: string): Promise<Document | null> {
@@ -110,7 +168,9 @@ export const DocumentService = {
     if (!doc) return null
     doc.name = newName.trim()
     doc.updatedAt = new Date().toISOString()
-    return await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+    const saved = await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+    api.put(`/documents/${id}`, { name: doc.name }).catch(() => {})
+    return saved
   },
 
   async moveDocument(id: string, targetFolderId: string | null): Promise<Document | null> {
@@ -118,11 +178,14 @@ export const DocumentService = {
     if (!doc) return null
     doc.folderId = targetFolderId
     doc.updatedAt = new Date().toISOString()
-    return await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+    const saved = await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+    api.put(`/documents/${id}`, { folderId: targetFolderId }).catch(() => {})
+    return saved
   },
 
   async deleteDocument(id: string): Promise<void> {
     await storage.delete(storage.STORES.DOCUMENTS, id)
+    api.delete(`/documents/${id}`).catch(() => {})
   },
 
   async toggleOfflineCache(id: string, shouldCache: boolean): Promise<Document | null> {

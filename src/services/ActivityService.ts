@@ -1,8 +1,22 @@
 import { storage } from './storage'
+import { api } from './api'
 import type { ActivityLog, User } from '@/types'
 
 export const ActivityService = {
   async getAllActivities(): Promise<ActivityLog[]> {
+    try {
+      const isOnline = await api.checkHealth()
+      if (isOnline) {
+        const res = await api.get<ActivityLog[]>('/activities')
+        if (res.success && Array.isArray(res.data)) {
+          for (const act of res.data) {
+            await storage.put<ActivityLog>(storage.STORES.ACTIVITIES, act)
+          }
+        }
+      }
+    } catch {
+      // Local fallback
+    }
     const all = await storage.getAll<ActivityLog>(storage.STORES.ACTIVITIES)
     return all.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
   },
@@ -30,6 +44,15 @@ export const ActivityService = {
       timestamp: new Date().toISOString(),
     }
 
-    return await storage.put<ActivityLog>(storage.STORES.ACTIVITIES, newLog)
+    const saved = await storage.put<ActivityLog>(storage.STORES.ACTIVITIES, newLog)
+    api.post('/activities', {
+      type: newLog.type,
+      actionTitle: newLog.actionTitle,
+      description: newLog.description,
+      targetName: newLog.targetName,
+      targetId: newLog.targetId,
+      employeeName: newLog.employeeName,
+    }).catch(() => {})
+    return saved
   },
 }

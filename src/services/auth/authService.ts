@@ -1,5 +1,4 @@
 import type { AuthUser, User, UserRole } from '@/types'
-import { UserService } from '@/services/UserService'
 import { storage } from '@/services/storage'
 import { api } from '@/services/api'
 
@@ -129,6 +128,10 @@ export const AuthService = {
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session))
   },
 
+  getToken(): string | null {
+    return api.getToken()
+  },
+
   /**
    * Clears the current authenticated session
    */
@@ -147,7 +150,8 @@ export const AuthService = {
   },
 
   /**
-   * Authenticate against Laravel Sanctum API, with local test accounts & IndexedDB fallback
+   * Authenticate against Laravel Sanctum API.
+   * Laravel/MySQL is the authoritative source of truth.
    */
   async login(
     usernameInput: string,
@@ -160,7 +164,6 @@ export const AuthService = {
       return { success: false, error: 'Please enter both username and password' }
     }
 
-    // Attempt Laravel Sanctum API authentication first
     try {
       const apiRes = await api.post('/login', {
         username: cleanUser,
@@ -183,78 +186,44 @@ export const AuthService = {
           avatar: apiRes.user.avatar,
         }
         this.saveSession(authUser, apiRes.token)
+
+        // Cache authenticated user in local storage for offline read availability
+        try {
+          await storage.init()
+          await storage.put<User>(storage.STORES.USERS, {
+            id: authUser.id,
+            name: authUser.name,
+            username: authUser.username,
+            displayName: authUser.displayName,
+            email: authUser.email,
+            role: authUser.role,
+            position: authUser.position,
+            department: authUser.department,
+            phone: authUser.phone,
+            assignedProject: authUser.assignedProject,
+          })
+        } catch {}
+
         return { success: true, user: authUser }
       }
-    } catch (e) {
-      console.warn('Backend API login request encountered error, trying local fallback...', e)
-    }
 
-    // Fallback 1: Check official test accounts
-    const lowerUser = cleanUser.toLowerCase()
-    const matchedTest = TEST_ACCOUNTS.find((acc) => {
-      const matchUsername = acc.username.toLowerCase() === lowerUser
-      const matchDisplayName = acc.displayName.toLowerCase() === lowerUser
-      const matchName = acc.name.toLowerCase() === lowerUser
-      const matchEmail = acc.email.toLowerCase() === lowerUser
-      return matchUsername || matchDisplayName || matchName || matchEmail
-    })
-
-    if (matchedTest) {
-      if (matchedTest.password === cleanPass) {
-        const authUser: AuthUser = {
-          id: matchedTest.id,
-          username: matchedTest.username,
-          displayName: matchedTest.displayName,
-          name: matchedTest.name,
-          email: matchedTest.email,
-          role: matchedTest.role,
-          position: matchedTest.position,
-          department: matchedTest.department,
-          phone: matchedTest.phone,
-          assignedProject: matchedTest.assignedProject,
-        }
-        this.saveSession(authUser)
-        return { success: true, user: authUser }
-      } else {
-        return { success: false, error: 'Invalid username or password' }
-      }
-    }
-
-    // Fallback 2: Check IndexedDB registered users
-    try {
-      const allUsers = await UserService.getAllUsers()
-      const foundUser = allUsers.find(
-        (u) =>
-          (u.username && u.username.toLowerCase() === lowerUser) ||
-          u.name.toLowerCase() === lowerUser ||
-          u.email.toLowerCase() === lowerUser
-      )
-
-      if (foundUser) {
-        if (cleanPass === 'ilovedbb' || cleanPass === 'password' || cleanPass.length >= 4) {
-          const authUser: AuthUser = {
-            id: foundUser.id,
-            username: foundUser.username || foundUser.name,
-            displayName: foundUser.displayName || foundUser.name,
-            name: foundUser.name,
-            email: foundUser.email,
-            role: foundUser.role,
-            position: foundUser.position,
-            department: foundUser.department,
-            phone: foundUser.phone,
-            assignedProject: foundUser.assignedProject,
-          }
-          this.saveSession(authUser)
-          return { success: true, user: authUser }
-        } else {
-          return { success: false, error: 'Invalid username or password' }
+      if (apiRes.isOffline) {
+        return {
+          success: false,
+          error: `Unable to connect to Laravel API (${api.getApiBaseUrl()}). Please ensure the backend is running on PC #1.`,
         }
       }
-    } catch (e) {
-      console.error('Error during fallback user lookup', e)
-    }
 
-    return { success: false, error: 'Invalid username or password' }
+      return {
+        success: false,
+        error: apiRes.error || 'Invalid username or password',
+      }
+    } catch (e: any) {
+      return {
+        success: false,
+        error: e.message || 'An unexpected connection error occurred.',
+      }
+    }
   },
 
   /**
@@ -278,20 +247,28 @@ export const AuthService = {
   },
 
   /**
-   * Register new user (defaults strictly to employee role)
+   * Register new user directly in Laravel API / MySQL database
    */
   async register(
     name: string,
     email: string,
     _role: UserRole = 'employee',
-    position = 'Field Engineer'
-  ): Promise<{ success: boolean; user: AuthUser; error?: string }> {
-    // Attempt Laravel API registration first
+    position = 'Field Engineer',
+    password = 'password'
+  ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+    const cleanName = name.trim()
+    const cleanEmail = email.trim().toLowerCase()
+
+    if (!cleanName || !cleanEmail) {
+      return { success: false, error: 'Name and email are required.' }
+    }
+
     try {
       const apiRes = await api.post('/register', {
-        name,
-        email,
-        position,
+        name: cleanName,
+        email: cleanEmail,
+        password: password || 'ilovedbb',
+        position: position || 'Field Engineer',
         department: 'Field Operations',
       })
 
@@ -310,45 +287,42 @@ export const AuthService = {
           assignedProject: apiRes.user.assignedProject,
         }
         this.saveSession(authUser, apiRes.token)
-        // Also sync to local storage for offline continuity
-        await storage.init()
-        await UserService.updateUser({
-          ...authUser,
-        })
+
+        // Cache user in local storage
+        try {
+          await storage.init()
+          await storage.put<User>(storage.STORES.USERS, {
+            id: authUser.id,
+            name: authUser.name,
+            username: authUser.username,
+            displayName: authUser.displayName,
+            email: authUser.email,
+            role: authUser.role,
+            position: authUser.position,
+            department: authUser.department,
+          })
+        } catch {}
+
         return { success: true, user: authUser }
       }
-    } catch (e) {
-      console.warn('Backend registration failed, using local registration fallback...', e)
-    }
 
-    // Fallback: Local IndexedDB registration
-    const newId = `employee-${Date.now()}`
-    const newUser: User = {
-      id: newId,
-      name,
-      displayName: name,
-      username: name,
-      email,
-      role: 'employee', // strictly default to employee for public registrations
-      position,
-      department: 'Field Operations',
-    }
+      if (apiRes.isOffline) {
+        return {
+          success: false,
+          error: `Unable to connect to Laravel API (${api.getApiBaseUrl()}). Please ensure the backend is running.`,
+        }
+      }
 
-    await storage.init()
-    await UserService.updateUser(newUser)
-
-    const authUser: AuthUser = {
-      id: newUser.id,
-      username: newUser.name,
-      displayName: newUser.name,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      position: newUser.position || 'Field Engineer',
-      department: newUser.department || 'Field Operations',
+      return {
+        success: false,
+        error: apiRes.error || 'Registration failed on server.',
+      }
+    } catch (e: any) {
+      return {
+        success: false,
+        error: e.message || 'Registration request failed.',
+      }
     }
-    this.saveSession(authUser)
-    return { success: true, user: authUser }
   },
 
   getTestAccounts(): TestAccountDefinition[] {

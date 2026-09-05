@@ -4,7 +4,7 @@
  * Configurable via VITE_API_URL environment variable.
  */
 
-const DEFAULT_API_URL = 'http://127.0.0.1:8000'
+const DEFAULT_API_URL = 'http://100.87.162.99:8000'
 const TOKEN_STORAGE_KEY = 'dbb_connect_api_token'
 
 export interface ApiResponse<T = any> {
@@ -23,15 +23,27 @@ class ApiClient {
   private lastHealthCheck: number = 0
 
   constructor() {
-    this.baseUrl = (import.meta.env.VITE_API_URL || DEFAULT_API_URL).replace(/\/$/, '')
+    this.baseUrl = this.normalizeUrl(import.meta.env.VITE_API_URL || DEFAULT_API_URL)
+  }
+
+  private normalizeUrl(url: string): string {
+    let clean = (url || '').trim().replace(/\/+$/, '')
+    if (clean.endsWith('/api')) {
+      clean = clean.slice(0, -4)
+    }
+    return clean
   }
 
   public getBaseUrl(): string {
     return this.baseUrl
   }
 
+  public getApiBaseUrl(): string {
+    return `${this.baseUrl}/api`
+  }
+
   public setBaseUrl(url: string): void {
-    this.baseUrl = url.replace(/\/$/, '')
+    this.baseUrl = this.normalizeUrl(url)
     this.isServerOnline = null
   }
 
@@ -125,9 +137,16 @@ class ApiClient {
       }
 
       if (!response.ok) {
+        let errMsg = json.message || `Server returned ${response.status}: ${response.statusText}`
+        if (json.errors && typeof json.errors === 'object') {
+          const firstErrorList = Object.values(json.errors)[0] as any
+          if (Array.isArray(firstErrorList) && firstErrorList.length > 0) {
+            errMsg = firstErrorList[0]
+          }
+        }
         return {
           success: false,
-          error: json.message || `Server returned ${response.status}: ${response.statusText}`,
+          error: errMsg,
           data: json.data,
         }
       }

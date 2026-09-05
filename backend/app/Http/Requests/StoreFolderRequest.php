@@ -11,6 +11,13 @@ class StoreFolderRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('parentId') === '' || $this->input('parentId') === 'root') {
+            $this->merge(['parentId' => null]);
+        }
+    }
+
     public function rules(): array
     {
         return [

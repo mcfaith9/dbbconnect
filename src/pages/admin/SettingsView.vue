@@ -1,26 +1,65 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import {
   Settings,
   Save,
   Check,
   Server,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { api } from '@/services/api'
 
 const companyName = ref('DBB Construction & Development Corp.')
 const projectCode = ref('NAGA-2026-PH2')
 const syncInterval = ref(30)
 const isSaved = ref(false)
 
+const apiUrl = ref(api.getApiBaseUrl())
+const isTestingConnection = ref(false)
+const connectionStatus = ref<'idle' | 'connected' | 'failed'>('idle')
+const connectionMessage = ref('')
+
+const testConnection = async () => {
+  isTestingConnection.value = true
+  connectionStatus.value = 'idle'
+  connectionMessage.value = ''
+  try {
+    const startTime = Date.now()
+    const isOnline = await api.checkHealth(true)
+    const elapsed = Date.now() - startTime
+    if (isOnline) {
+      connectionStatus.value = 'connected'
+      connectionMessage.value = `Laravel API is online and responding (${elapsed}ms). Health endpoint returned 200 OK.`
+    } else {
+      connectionStatus.value = 'failed'
+      connectionMessage.value = `Unable to reach ${apiUrl.value}/health. Please verify host and port.`
+    }
+  } catch (e: any) {
+    connectionStatus.value = 'failed'
+    connectionMessage.value = e.message || 'Connection test failed.'
+  } finally {
+    isTestingConnection.value = false
+  }
+}
+
 const handleSave = () => {
+  if (apiUrl.value) {
+    api.setBaseUrl(apiUrl.value)
+  }
   isSaved.value = true
   setTimeout(() => (isSaved.value = false), 2500)
 }
+
+onMounted(() => {
+  testConnection()
+})
 </script>
 
 <template>
@@ -42,6 +81,62 @@ const handleSave = () => {
         </p>
       </div>
     </div>
+
+    <!-- Live Laravel Backend Connection Status & Diagnostics -->
+    <Card class="shadow-xs border">
+      <CardHeader>
+        <div class="flex items-center justify-between">
+          <div>
+            <CardTitle class="text-base font-bold flex items-center gap-2">
+              <Server class="size-4 text-primary" />
+              Laravel REST API Connection
+            </CardTitle>
+            <CardDescription>
+              Authoritative backend powering multi-PC synchronization and MySQL persistence.
+            </CardDescription>
+          </div>
+          <Badge
+            :variant="connectionStatus === 'connected' ? 'default' : connectionStatus === 'failed' ? 'destructive' : 'secondary'"
+            class="capitalize"
+          >
+            {{ connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'failed' ? 'Offline' : 'Checking...' }}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <div class="space-y-2">
+          <Label for="api-url">Laravel API Base URL</Label>
+          <div class="flex gap-2">
+            <Input id="api-url" v-model="apiUrl" placeholder="http://100.87.162.99:8000/api" class="font-mono text-xs" />
+            <Button variant="outline" class="gap-1.5 shrink-0" :disabled="isTestingConnection" @click="testConnection">
+              <RefreshCw class="size-3.5" :class="{ 'animate-spin': isTestingConnection }" />
+              Test Connection
+            </Button>
+          </div>
+        </div>
+
+        <div
+          v-if="connectionMessage"
+          class="p-3 rounded-lg text-xs font-medium flex items-center gap-2"
+          :class="connectionStatus === 'connected' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-destructive/10 text-destructive border border-destructive/20'"
+        >
+          <CheckCircle2 v-if="connectionStatus === 'connected'" class="size-4 shrink-0" />
+          <XCircle v-else class="size-4 shrink-0" />
+          <span>{{ connectionMessage }}</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs text-muted-foreground border-t">
+          <div>
+            <span class="font-semibold text-foreground">Sanctum Bearer Token:</span>
+            <span class="ml-1.5 font-mono">{{ api.getToken() ? 'Authenticated (Active)' : 'None (Signed Out)' }}</span>
+          </div>
+          <div>
+            <span class="font-semibold text-foreground">Health Endpoint:</span>
+            <span class="ml-1.5 font-mono">GET /api/health</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
 
     <!-- Configuration Form -->
     <Card class="shadow-xs">
@@ -77,30 +172,6 @@ const handleSave = () => {
             Save Configuration
           </Button>
         </div>
-      </CardContent>
-    </Card>
-
-    <!-- Architecture & Backend Migration Readiness Note -->
-    <Card class="shadow-xs bg-muted/20 border">
-      <CardHeader>
-        <CardTitle class="text-base font-bold flex items-center gap-2">
-          <Server class="size-4 text-primary" />
-          Laravel Backend Migration Architecture
-        </CardTitle>
-        <CardDescription>
-          All data operations are isolated in TypeScript service layers (`DocumentService`, `FolderService`, `UserService`, `SyncService`).
-        </CardDescription>
-      </CardHeader>
-      <CardContent class="space-y-2 text-xs text-muted-foreground leading-relaxed">
-        <p>
-          • <strong>Current Storage:</strong> Zero-dependency browser-native IndexedDB engine (`dbb_fieldhub_indexeddb`).
-        </p>
-        <p>
-          • <strong>Future Laravel Integration:</strong> To connect to a live Laravel REST API, replace the internal IndexedDB calls inside `src/services/*` with standard HTTP Axios/Fetch endpoints without touching any Vue UI components.
-        </p>
-        <p>
-          • <strong>PWA Service Worker:</strong> Assets and document responses are cached for offline zero-connectivity job sites.
-        </p>
       </CardContent>
     </Card>
   </div>

@@ -10,7 +10,7 @@ import { useAuth } from '@/composables/useAuth'
 
 const router = useRouter()
 const route = useRoute()
-const { login, loginAs, getTestAccounts, initAuth } = useAuth()
+const { login, getTestAccounts, initAuth } = useAuth()
 
 const username = ref('dmbbadmin')
 const password = ref('ilovedbb')
@@ -53,11 +53,16 @@ const handleQuickLogin = async (account: any) => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const user = await loginAs(account)
-    const redirectTarget = (route.query.redirect as string) || (user.role === 'admin' ? '/field-manager' : '/my-files')
-    router.push(redirectTarget)
-  } catch (e) {
-    errorMessage.value = 'Quick login failed. Please try manual login.'
+    const userOrEmail = account.username || account.email || account.name
+    const res = await login(userOrEmail, 'ilovedbb')
+    if (res.success && res.user) {
+      const redirectTarget = (route.query.redirect as string) || (res.user.role === 'admin' ? '/field-manager' : '/my-files')
+      router.push(redirectTarget)
+    } else {
+      errorMessage.value = res.error || 'Quick login failed.'
+    }
+  } catch (e: any) {
+    errorMessage.value = e.message || 'Quick login failed. Please try manual login.'
   } finally {
     isLoading.value = false
   }

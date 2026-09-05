@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { AlertCircle, Loader2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,13 +13,39 @@ const { register } = useAuth()
 
 const name = ref('')
 const email = ref('')
+const password = ref('')
 const position = ref('Field Engineer')
 const role = ref<'employee' | 'admin'>('employee')
+const isLoading = ref(false)
+const errorMessage = ref('')
 
 const handleRegister = async () => {
-  if (!name.value || !email.value) return
-  await register(name.value, email.value, role.value, position.value)
-  router.push(role.value === 'admin' ? '/field-manager' : '/my-files')
+  errorMessage.value = ''
+  if (!name.value || !email.value) {
+    errorMessage.value = 'Name and email are required.'
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const result = await register(
+      name.value,
+      email.value,
+      role.value,
+      position.value,
+      password.value || 'ilovedbb'
+    )
+
+    if (result.success && result.user) {
+      router.push(role.value === 'admin' ? '/field-manager' : '/my-files')
+    } else {
+      errorMessage.value = result.error || 'Registration failed. Please check your details.'
+    }
+  } catch (e: any) {
+    errorMessage.value = e.message || 'An error occurred during registration.'
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 
@@ -32,12 +59,21 @@ const handleRegister = async () => {
         <div>
           <CardTitle class="text-xl font-bold tracking-tight text-foreground">Register Field Personnel</CardTitle>
           <CardDescription class="text-xs text-muted-foreground mt-1">
-            Create a new user account for DBB Connect.
+            Create an account directly in the centralized Laravel / MySQL database.
           </CardDescription>
         </div>
       </CardHeader>
 
       <CardContent class="space-y-4">
+        <!-- Error Alert -->
+        <div
+          v-if="errorMessage"
+          class="flex items-center gap-2 p-3 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 rounded-lg animate-in fade-in duration-200"
+        >
+          <AlertCircle class="size-4 shrink-0" />
+          <span>{{ errorMessage }}</span>
+        </div>
+
         <form @submit.prevent="handleRegister" class="space-y-3">
           <div class="space-y-1.5">
             <Label for="reg-name">Full Name</Label>
@@ -48,12 +84,18 @@ const handleRegister = async () => {
             <Input id="reg-email" type="email" v-model="email" placeholder="roberto@dbb.com" required />
           </div>
           <div class="space-y-1.5">
+            <Label for="reg-password">Password (Optional - defaults to ilovedbb)</Label>
+            <Input id="reg-password" type="password" v-model="password" placeholder="At least 6 characters" />
+          </div>
+          <div class="space-y-1.5">
             <Label for="reg-pos">Position / Role Title</Label>
             <Input id="reg-pos" v-model="position" placeholder="e.g. Safety Inspector" required />
           </div>
 
-          <Button type="submit" class="w-full mt-2">
-            Create Account &amp; Sign In
+          <Button type="submit" class="w-full mt-2" :disabled="isLoading">
+            <Loader2 v-if="isLoading" class="size-4 mr-2 animate-spin" />
+            <span v-if="!isLoading">Create Account &amp; Sign In</span>
+            <span v-else>Registering in MySQL...</span>
           </Button>
 
           <div class="text-center pt-2">

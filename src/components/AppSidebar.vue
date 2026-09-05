@@ -150,7 +150,7 @@ const navigateTo = (url: string) => {
                   :class="[
                     'size-4 shrink-0',
                     isCurrentRoute(item.url)
-                      ? 'text-black dark:text-white'
+                      ? ''
                       : 'text-muted-foreground',
                   ]"
                 />

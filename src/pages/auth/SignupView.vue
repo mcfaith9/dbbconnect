@@ -14,7 +14,7 @@ const { register } = useAuth()
 const name = ref('')
 const email = ref('')
 const password = ref('')
-const position = ref('Field Engineer')
+const position = ref('Employee')
 const role = ref<'employee' | 'admin'>('employee')
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -77,11 +77,11 @@ const handleRegister = async () => {
         <form @submit.prevent="handleRegister" class="space-y-3">
           <div class="space-y-1.5">
             <Label for="reg-name">Full Name</Label>
-            <Input id="reg-name" v-model="name" placeholder="e.g. Roberto Gomez" required />
+            <Input id="reg-name" v-model="name" placeholder="e.g. Marc Cabigas" required />
           </div>
           <div class="space-y-1.5">
             <Label for="reg-email">Email Address</Label>
-            <Input id="reg-email" type="email" v-model="email" placeholder="roberto@dbb.com" required />
+            <Input id="reg-email" type="email" v-model="email" placeholder="e.g. mcdc@dbb.com" required />
           </div>
           <div class="space-y-1.5">
             <Label for="reg-password">Password (Optional - defaults to ilovedbb)</Label>

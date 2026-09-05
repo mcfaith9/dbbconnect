@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ShieldCheck, HardHat, ArrowRight, Lock, User as UserIcon, AlertCircle, Loader2, Server, RefreshCw } from '@lucide/vue'
+import { ShieldCheck, HardHat, ArrowRight, Lock, UserRound as UserIcon, AlertCircle, Loader2, Server, RefreshCw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,8 +13,8 @@ const router = useRouter()
 const route = useRoute()
 const { login, getTestAccounts, initAuth } = useAuth()
 
-const username = ref('dmbbadmin')
-const password = ref('ilovedbb')
+const username = ref('')
+const password = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
 const testAccounts = ref(getTestAccounts())
@@ -222,7 +222,7 @@ const handleQuickLogin = async (account: any) => {
                 id="username"
                 v-model="username"
                 class="pl-9 text-sm"
-                placeholder="e.g. dmbbadmin or Marc Louie Cabigas"
+                placeholder="e.g. dmbbadmin or admin@dbb.com"
                 autocomplete="username"
                 required
               />

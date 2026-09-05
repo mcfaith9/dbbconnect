@@ -1,3 +1,5 @@
+import type { Component } from 'vue'
+
 export type UserRole = 'admin' | 'employee'
 
 export interface User {
@@ -12,6 +14,19 @@ export interface User {
   department: string
   phone?: string
   assignedProject?: string
+  status?: 'active' | 'inactive' | 'pending'
+}
+
+export interface NavbarItem {
+  label: string
+  value?: string
+  url?: string
+  icon?: Component
+  action?: () => void
+  adminOnly?: boolean
+  destructive?: boolean
+  separatorBefore?: boolean
+  disabled?: boolean
 }
 
 export interface AuthUser {
@@ -26,6 +41,7 @@ export interface AuthUser {
   department: string
   phone?: string
   assignedProject?: string
+  status?: 'active' | 'inactive' | 'pending'
 }
 
 export interface LoginCredentials {
@@ -42,6 +58,7 @@ export interface Folder {
   updatedAt: string
   color?: string
   isSystem?: boolean
+  status?: 'active' | 'pending' | 'completed' | 'archived'
 }
 
 export type DocumentType = 'pdf' | 'image' | 'word' | 'excel' | 'powerpoint' | 'other'

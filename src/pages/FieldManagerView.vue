@@ -3,16 +3,19 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   UsersRound,
+  UserRound,
+  Grid,
+  List as ListIcon,
   FolderPlus,
   Upload,
   Folder,
   FileText,
   Image as ImageIcon,
   MoreVertical,
+  MoreHorizontal,
   ChevronRight,
+  ChevronLeft,
   Search,
-  Grid,
-  List as ListIcon,
   ArrowLeft,
   Trash2,
   Edit2,
@@ -21,12 +24,16 @@ import {
   Eye,
   UserCheck,
   FolderOpen,
+  AlertCircle,
+  TrendingUp,
+  Copy,
+  X,
 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +41,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import NewFolderModal from '@/components/modals/NewFolderModal.vue'
 import UploadFilesModal from '@/components/modals/UploadFilesModal.vue'
@@ -52,10 +67,13 @@ import type { User, Folder as FolderType, Document as DocumentType, BreadcrumbCr
 
 const route = useRoute()
 const router = useRouter()
-const { currentUser } = useAuth()
+const { currentUser, isAdmin } = useAuth()
 
 // State
 const employees = ref<User[]>([])
+const allAssignedFolders = ref<FolderType[]>([])
+const targetEmployeeForNewFolder = ref<User | null>(null)
+
 const selectedEmployee = ref<User | null>(null)
 const currentFolderId = ref<string | null>(null)
 const currentFolder = ref<FolderType | null>(null)
@@ -64,10 +82,34 @@ const folders = ref<FolderType[]>([])
 const documents = ref<DocumentType[]>([])
 const breadcrumbs = ref<BreadcrumbCrumb[]>([])
 
+// Workspace view controls (When viewing an employee)
 const searchQuery = ref('')
 const viewMode = ref<'grid' | 'list'>('grid')
 const sortBy = ref<'name' | 'date' | 'size'>('name')
 const isLoading = ref(true)
+
+// Directory view controls (When viewing all employees)
+const directoryViewMode = ref<'grid' | 'list'>(
+  typeof localStorage !== 'undefined' && localStorage.getItem('field_manager_view_mode') === 'list'
+    ? 'list'
+    : 'grid',
+)
+
+const setDirectoryViewMode = (mode: 'grid' | 'list') => {
+  directoryViewMode.value = mode
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('field_manager_view_mode', mode)
+  }
+}
+
+// Directory Search, Filters & Sorting
+const directorySearchQuery = ref('')
+const statusFilter = ref<'all' | 'active' | 'inactive' | 'pending'>('all')
+const departmentFilter = ref<string>('all')
+const workloadFilter = ref<'all' | 'none' | 'low' | 'medium' | 'high'>('all')
+const directorySortBy = ref<
+  'name-asc' | 'name-desc' | 'folders-desc' | 'folders-asc' | 'status' | 'activity'
+>('name-asc')
 
 // Modals
 const isNewFolderModalOpen = ref(false)
@@ -83,7 +125,12 @@ const activeItemType = ref<'folder' | 'document'>('document')
 
 // Load initial data
 const loadEmployees = async () => {
-  employees.value = await UserService.getFieldEmployees()
+  const [fieldUsers, allFoldersRes] = await Promise.all([
+    UserService.getFieldEmployees(),
+    FolderService.getAllFolders(),
+  ])
+  employees.value = fieldUsers
+  allAssignedFolders.value = allFoldersRes
 }
 
 const loadWorkspaceData = async () => {
@@ -132,7 +179,221 @@ watch(
   },
 )
 
-// Computed list filters
+// Folders by employee lookup map
+const foldersByEmployee = computed(() => {
+  const map = new Map<string, FolderType[]>()
+  for (const f of allAssignedFolders.value) {
+    if (!f.ownerId || f.ownerId === 'shared') continue
+    const list = map.get(f.ownerId) || []
+    list.push(f)
+    map.set(f.ownerId, list)
+  }
+  return map
+})
+
+const getEmployeeFolders = (empId: string): FolderType[] => {
+  const list = foldersByEmployee.value.get(empId) || []
+  return [...list].sort((a, b) => {
+    const timeA = new Date(a.updatedAt || a.createdAt).getTime()
+    const timeB = new Date(b.updatedAt || b.createdAt).getTime()
+    return timeB - timeA
+  })
+}
+
+// Workload evaluation
+const getWorkloadLevel = (count: number): 'none' | 'low' | 'medium' | 'high' => {
+  if (count === 0) return 'none'
+  if (count <= 5) return 'low'
+  if (count <= 15) return 'medium'
+  return 'high'
+}
+
+const getWorkloadClass = (count: number) => {
+  const lvl = getWorkloadLevel(count)
+  switch (lvl) {
+    case 'none':
+      return 'bg-muted/80 text-muted-foreground border-transparent'
+    case 'low':
+      return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+    case 'medium':
+      return 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20'
+    case 'high':
+      return 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30 font-semibold'
+  }
+}
+
+const getEmployeeStatus = (emp: User): 'active' | 'inactive' | 'pending' => {
+  return emp.status || 'active'
+}
+
+const getStatusBadgeClass = (status: 'active' | 'inactive' | 'pending') => {
+  switch (status) {
+    case 'active':
+      return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+    case 'inactive':
+      return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
+    case 'pending':
+      return 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+  }
+}
+
+const getStatusDotClass = (status: 'active' | 'inactive' | 'pending') => {
+  switch (status) {
+    case 'active':
+      return 'bg-emerald-500'
+    case 'inactive':
+      return 'bg-slate-400'
+    case 'pending':
+      return 'bg-amber-500'
+  }
+}
+
+const getEmployeeLastActivity = (emp: User): string => {
+  const empFolders = getEmployeeFolders(emp.id)
+  if (empFolders.length === 0) return 'No folders assigned'
+  const mostRecent = empFolders[0]
+  const dateStr = mostRecent.updatedAt || mostRecent.createdAt
+  if (!dateStr) return 'Recently active'
+  const date = new Date(dateStr)
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+// Summary Statistics
+const totalEmployeesCount = computed(() => employees.value.length)
+const activePersonnelCount = computed(
+  () => employees.value.filter((e) => getEmployeeStatus(e) === 'active').length,
+)
+const totalAssignedFoldersCount = computed(
+  () => allAssignedFolders.value.filter((f) => f.ownerId && f.ownerId !== 'shared').length,
+)
+const highWorkloadCount = computed(
+  () => employees.value.filter((e) => getEmployeeFolders(e.id).length >= 16).length,
+)
+
+// Dynamic Department Options
+const availableDepartments = computed(() => {
+  const set = new Set<string>()
+  for (const emp of employees.value) {
+    if (emp.department) set.add(emp.department)
+  }
+  return Array.from(set).sort()
+})
+
+const hasActiveFilters = computed(() => {
+  return (
+    directorySearchQuery.value.trim() !== '' ||
+    statusFilter.value !== 'all' ||
+    departmentFilter.value !== 'all' ||
+    workloadFilter.value !== 'all' ||
+    directorySortBy.value !== 'name-asc'
+  )
+})
+
+const resetFilters = () => {
+  directorySearchQuery.value = ''
+  statusFilter.value = 'all'
+  departmentFilter.value = 'all'
+  workloadFilter.value = 'all'
+  directorySortBy.value = 'name-asc'
+  currentPage.value = 1
+}
+
+// Directory Filtered Employees
+const filteredEmployees = computed(() => {
+  let list = employees.value
+
+  if (directorySearchQuery.value.trim()) {
+    const q = directorySearchQuery.value.toLowerCase().trim()
+    list = list.filter((e) => {
+      const name = (e.name || '').toLowerCase()
+      const username = (e.username || '').toLowerCase()
+      const id = (e.id || '').toLowerCase()
+      const dept = (e.department || '').toLowerCase()
+      const pos = (e.position || '').toLowerCase()
+      const proj = (e.assignedProject || '').toLowerCase()
+      return (
+        name.includes(q) ||
+        username.includes(q) ||
+        id.includes(q) ||
+        dept.includes(q) ||
+        pos.includes(q) ||
+        proj.includes(q)
+      )
+    })
+  }
+
+  if (statusFilter.value !== 'all') {
+    list = list.filter((e) => getEmployeeStatus(e) === statusFilter.value)
+  }
+
+  if (departmentFilter.value !== 'all') {
+    list = list.filter((e) => (e.department || '') === departmentFilter.value)
+  }
+
+  if (workloadFilter.value !== 'all') {
+    list = list.filter((e) => {
+      const count = getEmployeeFolders(e.id).length
+      return getWorkloadLevel(count) === workloadFilter.value
+    })
+  }
+
+  return [...list].sort((a, b) => {
+    if (directorySortBy.value === 'name-asc') {
+      return (a.name || '').localeCompare(b.name || '')
+    }
+    if (directorySortBy.value === 'name-desc') {
+      return (b.name || '').localeCompare(a.name || '')
+    }
+    if (directorySortBy.value === 'folders-desc') {
+      return getEmployeeFolders(b.id).length - getEmployeeFolders(a.id).length
+    }
+    if (directorySortBy.value === 'folders-asc') {
+      return getEmployeeFolders(a.id).length - getEmployeeFolders(b.id).length
+    }
+    if (directorySortBy.value === 'status') {
+      return getEmployeeStatus(a).localeCompare(getEmployeeStatus(b))
+    }
+    if (directorySortBy.value === 'activity') {
+      const foldersA = getEmployeeFolders(a.id)
+      const foldersB = getEmployeeFolders(b.id)
+      const dateA = foldersA[0]?.updatedAt || foldersA[0]?.createdAt || ''
+      const dateB = foldersB[0]?.updatedAt || foldersB[0]?.createdAt || ''
+      return new Date(dateB).getTime() - new Date(dateA).getTime()
+    }
+    return 0
+  })
+})
+
+// Pagination
+const currentPage = ref(1)
+const itemsPerPage = computed(() => (directoryViewMode.value === 'grid' ? 12 : 15))
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredEmployees.value.length / itemsPerPage.value)),
+)
+const paginatedEmployees = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  return filteredEmployees.value.slice(start, start + itemsPerPage.value)
+})
+
+watch(
+  [
+    directorySearchQuery,
+    statusFilter,
+    departmentFilter,
+    workloadFilter,
+    directorySortBy,
+    directoryViewMode,
+  ],
+  () => {
+    currentPage.value = 1
+  },
+)
+
+// Computed list filters (For active employee workspace)
 const filteredFolders = computed(() => {
   if (!searchQuery.value.trim()) return folders.value
   const q = searchQuery.value.toLowerCase().trim()
@@ -143,7 +404,11 @@ const filteredDocuments = computed(() => {
   let list = documents.value
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase().trim()
-    list = list.filter((d) => d.name.toLowerCase().includes(q) || d.tags?.some((t) => t.toLowerCase().includes(q)))
+    list = list.filter(
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        d.tags?.some((t) => t.toLowerCase().includes(q)),
+    )
   }
 
   return [...list].sort((a, b) => {
@@ -155,17 +420,6 @@ const filteredDocuments = computed(() => {
     }
     return a.name.localeCompare(b.name)
   })
-})
-
-const filteredEmployees = computed(() => {
-  if (!searchQuery.value.trim()) return employees.value
-  const q = searchQuery.value.toLowerCase().trim()
-  return employees.value.filter(
-    (e) =>
-      e.name.toLowerCase().includes(q) ||
-      e.position?.toLowerCase().includes(q) ||
-      e.assignedProject?.toLowerCase().includes(q),
-  )
 })
 
 // Navigation Handlers
@@ -196,32 +450,52 @@ const backToEmployeeList = () => {
   router.push('/field-manager')
 }
 
+const openAssignFolderModal = (emp: User) => {
+  targetEmployeeForNewFolder.value = emp
+  isNewFolderModalOpen.value = true
+}
+
+const copyEmployeeId = async (id: string) => {
+  try {
+    await navigator.clipboard.writeText(id)
+    alert(`Employee ID "${id}" copied to clipboard.`)
+  } catch {
+    // fallback
+  }
+}
+
 // Folder Actions
 const handleCreateFolder = async (data: { name: string; color: string }) => {
-  if (!selectedEmployee.value) return
+  const targetUser = selectedEmployee.value || targetEmployeeForNewFolder.value
+  if (!targetUser) return
   try {
     const newFolder = await FolderService.createFolder({
       name: data.name,
-      parentId: currentFolderId.value,
-      ownerId: selectedEmployee.value.id,
+      parentId: selectedEmployee.value ? currentFolderId.value : null,
+      ownerId: targetUser.id,
       color: data.color,
     })
 
-    folders.value.push(newFolder)
+    if (selectedEmployee.value) {
+      folders.value.push(newFolder)
+    }
+    allAssignedFolders.value.push(newFolder)
 
     if (currentUser.value) {
       await ActivityService.logActivity({
         user: currentUser.value,
         type: 'create_folder',
         actionTitle: 'Folder Created',
-        description: `Created folder "${data.name}" for ${selectedEmployee.value.name}`,
+        description: `Created folder "${data.name}" for ${targetUser.name}`,
         targetName: data.name,
         targetId: newFolder.id,
-        employeeName: selectedEmployee.value.name,
+        employeeName: targetUser.name,
       })
     }
   } catch (err: any) {
     alert(err.message || 'Failed to create folder on server.')
+  } finally {
+    targetEmployeeForNewFolder.value = null
   }
 }
 
@@ -433,32 +707,203 @@ const handleDownload = (doc: DocumentType) => {
 
 <template>
   <div class="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
+    <!-- ACCESS DENIED STATE FOR NON-ADMINS -->
+    <div
+      v-if="!isAdmin"
+      class="border rounded-xl p-8 sm:p-12 text-center space-y-4 bg-card max-w-lg mx-auto shadow-sm my-12"
+    >
+      <div class="size-12 rounded-full bg-destructive/10 text-destructive mx-auto flex items-center justify-center">
+        <AlertCircle class="size-6" />
+      </div>
+      <div>
+        <h3 class="font-bold text-lg text-foreground">Admin Access Required</h3>
+        <p class="text-xs sm:text-sm text-muted-foreground mt-1">
+          The Field Manager view is restricted to system administrators. Please contact an administrator if you require access.
+        </p>
+      </div>
+      <Button size="sm" class="text-xs" @click="router.push('/dashboard')">
+        Return to Dashboard
+      </Button>
+    </div>
+
     <!-- VIEW 1: FIELD EMPLOYEES SELECTION DIRECTORY (When no employee is selected) -->
-    <div v-if="!selectedEmployee" class="space-y-6">
-      <!-- Title & Search Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div v-else-if="!selectedEmployee" class="space-y-6">
+      <!-- Header: Title, Description & Grid/List View Switcher -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5">
         <div>
-          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <UsersRound class="size-6 text-primary" />
-            Field Manager Directory
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+            <div class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <UsersRound class="size-5" />
+            </div>
+            <span>Field Manager Directory</span>
           </h1>
-          <p class="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Select a field employee to manage their assigned folders and upload digital files.
+          <p class="text-xs sm:text-sm text-muted-foreground mt-1">
+            Manage field personnel, inspect assigned folders, monitor workloads, and dispatch files.
           </p>
         </div>
 
-        <!-- Search box -->
-        <div class="relative w-full sm:w-72">
-          <Search class="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            v-model="searchQuery"
-            placeholder="Search field personnel or project..."
-            class="pl-9 h-9 text-xs"
-          />
+        <!-- View Switcher Segmented Control -->        
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="inline-flex items-center rounded-lg border bg-muted/50 p-1">
+            <button
+              type="button"
+              :class="['p-1 rounded transition-colors', directoryViewMode === 'grid' ? 'bg-muted text-foreground' : 'text-muted-foreground']"
+              title="Grid View"
+              @click="setDirectoryViewMode('grid')"
+            >
+              <Grid class="size-3.5" />
+            </button>
+            <button
+              type="button"
+              :class="['p-1 rounded transition-colors', directoryViewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground']"
+              title="List View"
+              @click="setDirectoryViewMode('list')"
+            >
+              <ListIcon class="size-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Empty State if no employees match search -->
+      <!-- Admin Summary Statistics -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-card border rounded-xl p-4 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-muted-foreground">
+            <span class="text-xs font-medium">Total Employees</span>
+            <UsersRound class="size-4 text-primary" />
+          </div>
+          <div class="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            {{ totalEmployeesCount }}
+          </div>
+          <p class="text-[11px] text-muted-foreground">Registered field personnel</p>
+        </div>
+
+        <div class="bg-card border rounded-xl p-4 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-muted-foreground">
+            <span class="text-xs font-medium">Active Personnel</span>
+            <UserCheck class="size-4 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div class="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            {{ activePersonnelCount }}
+          </div>
+          <p class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Ready for assignments</p>
+        </div>
+
+        <div class="bg-card border rounded-xl p-4 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-muted-foreground">
+            <span class="text-xs font-medium">Assigned Folders</span>
+            <Folder class="size-4 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div class="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            {{ totalAssignedFoldersCount }}
+          </div>
+          <p class="text-[11px] text-muted-foreground">Across all field personnel</p>
+        </div>
+
+        <div class="bg-card border rounded-xl p-4 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-muted-foreground">
+            <span class="text-xs font-medium">High Workload</span>
+            <TrendingUp class="size-4 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div class="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            {{ highWorkloadCount }}
+          </div>
+          <p class="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Personnel with 16+ folders</p>
+        </div>
+      </div>
+
+      <!-- Search & Filters Toolbar -->
+      <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-card border rounded-xl p-3 sm:p-4 shadow-2xs">
+        <!-- Search Field -->
+        <div class="relative flex-1 min-w-[240px]">
+          <Search class="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            v-model="directorySearchQuery"
+            placeholder="Search by name, username, ID, position, or department..."
+            class="pl-9 h-9 text-xs"
+          />
+          <button
+            v-if="directorySearchQuery"
+            type="button"
+            class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+            @click="directorySearchQuery = ''"
+          >
+            <X class="size-4" />
+          </button>
+        </div>
+
+        <!-- Filter Selects -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Status Filter -->
+          <div class="flex items-center gap-1.5">
+            <select
+              v-model="statusFilter"
+              class="h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-ring text-foreground"
+            >
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+
+          <!-- Department Filter -->
+          <div class="flex items-center gap-1.5">
+            <select
+              v-model="departmentFilter"
+              class="h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-ring text-foreground max-w-[170px] truncate"
+            >
+              <option value="all">All Departments</option>
+              <option v-for="dept in availableDepartments" :key="dept" :value="dept">
+                {{ dept }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Workload Filter -->
+          <div class="flex items-center gap-1.5">
+            <select
+              v-model="workloadFilter"
+              class="h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-ring text-foreground"
+            >
+              <option value="all">All Workloads</option>
+              <option value="none">No Folders (0)</option>
+              <option value="low">Low Workload (1–5)</option>
+              <option value="medium">Medium Workload (6–15)</option>
+              <option value="high">High Workload (16+)</option>
+            </select>
+          </div>
+
+          <!-- Sort Select -->
+          <div class="flex items-center gap-1.5">
+            <select
+              v-model="directorySortBy"
+              class="h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-ring text-foreground"
+            >
+              <option value="name-asc">Sort: Name (A–Z)</option>
+              <option value="name-desc">Sort: Name (Z–A)</option>
+              <option value="folders-desc">Sort: Folders (High to Low)</option>
+              <option value="folders-asc">Sort: Folders (Low to High)</option>
+              <option value="status">Sort: Status</option>
+              <option value="activity">Sort: Recent Activity</option>
+            </select>
+          </div>
+
+          <!-- Reset Filters Button -->
+          <Button
+            v-if="hasActiveFilters"
+            variant="ghost"
+            size="sm"
+            class="h-9 text-xs text-muted-foreground hover:text-foreground gap-1"
+            @click="resetFilters"
+          >
+            <X class="size-3.5" />
+            <span>Reset</span>
+          </Button>
+        </div>
+      </div>
+
+      <!-- EMPTY STATE: NO EMPLOYEES MATCH SEARCH / FILTERS -->
       <div
         v-if="filteredEmployees.length === 0"
         class="border-2 border-dashed rounded-xl p-12 text-center space-y-3 bg-muted/10"
@@ -467,64 +912,341 @@ const handleDownload = (doc: DocumentType) => {
           <UsersRound class="size-6" />
         </div>
         <div>
-          <h4 class="font-semibold text-sm">No field personnel found</h4>
-          <p class="text-xs text-muted-foreground mt-0.5">
-            No employees match the filter criteria "{{ searchQuery }}".
+          <h4 class="font-semibold text-sm text-foreground">No field personnel found</h4>
+          <p class="text-xs text-muted-foreground mt-0.5 max-w-sm mx-auto">
+            <span v-if="directorySearchQuery">
+              No employees match the query "{{ directorySearchQuery }}".
+            </span>
+            <span v-else>
+              No employees match the selected filter criteria.
+            </span>
           </p>
         </div>
-        <Button size="sm" variant="outline" class="text-xs mt-2" @click="searchQuery = ''">
-          Clear Search Filter
+        <Button size="sm" variant="outline" class="text-xs mt-2" @click="resetFilters">
+          Clear Filters &amp; Search
         </Button>
       </div>
 
-      <!-- Employee Cards Grid -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- GRID VIEW -->
+      <div
+        v-else-if="directoryViewMode === 'grid'"
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4"
+      >
         <Card
-          v-for="emp in filteredEmployees"
+          v-for="emp in paginatedEmployees"
           :key="emp.id"
-          class="shadow-xs hover:border-primary hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
-          @click="openEmployeeWorkspace(emp)"
+          class="shadow-2xs hover:border-primary/50 hover:shadow-md transition-all flex flex-col justify-between group overflow-hidden border"
         >
-          <CardHeader class="pb-3">
-            <div class="flex items-center gap-3">
-              <Avatar class="size-11 border-2 border-primary/20 group-hover:border-primary transition-colors">
-                <AvatarFallback class="bg-primary/10 text-primary font-bold text-sm">
-                  {{ emp.name.split(' ').map((n) => n[0]).join('') }}
-                </AvatarFallback>
-              </Avatar>
-              <div class="min-w-0">
-                <CardTitle class="text-base font-bold group-hover:text-primary transition-colors truncate">
-                  {{ emp.name }}
-                </CardTitle>
-                <CardDescription class="text-xs font-medium text-muted-foreground truncate">
-                  {{ emp.position }}
-                </CardDescription>
+          <!-- Card Header -->
+          <CardHeader class="pb-1 space-y-2">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <Avatar class="size-10 border shrink-0 group-hover:border-primary/50 transition-colors">
+                  <AvatarFallback class="bg-primary/10 text-primary font-bold text-xs">
+                    {{ emp.name ? emp.name.split(' ').map((n) => n[0]).join('') : 'U' }}
+                  </AvatarFallback>
+                </Avatar>
+                <div class="min-w-0">
+                  <div class="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                    {{ emp.name }}
+                  </div>
+                  <div class="text-[11px] text-muted-foreground truncate">
+                    {{ emp.position }}
+                  </div>
+                </div>
               </div>
+
+              <!-- Status Badge with Dot -->
+              <Badge
+                variant="outline"
+                :class="['text-[10px] capitalize gap-1 font-medium shrink-0 px-2 py-0.5', getStatusBadgeClass(getEmployeeStatus(emp))]"
+              >
+                <span class="size-1.5 rounded-full" :class="getStatusDotClass(getEmployeeStatus(emp))" />
+                {{ getEmployeeStatus(emp) }}
+              </Badge>
+            </div>
+
+            <!-- Department & ID Row -->
+            <div class="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-dashed">
+              <span class="font-mono text-[10px] text-muted-foreground/80">ID: {{ emp.id }}</span>
             </div>
           </CardHeader>
 
-          <CardContent class="pt-0 space-y-4">
-            <div class="bg-muted/40 p-2.5 rounded-lg text-xs space-y-1 border">
-              <div class="flex items-center justify-between text-muted-foreground">
-                <span>Assigned Project:</span>
-                <span class="font-semibold text-foreground truncate max-w-[150px]">
-                  {{ emp.assignedProject || 'Naga Project' }}
-                </span>
+          <!-- Card Content: Workload & Assigned Folders Preview -->
+          <CardContent class="pt-0 space-y-3 flex-1 flex flex-col justify-between">
+            <div class="space-y-2">
+              <!-- Folder Count Workload Indicator -->
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-medium text-muted-foreground">Assigned Folders:</span>
+                <Badge variant="outline">
+                  <FolderOpen class="w-3.5 h-3.5 mr-1" /> {{ getEmployeeFolders(emp.id).length }}
+                </Badge>
               </div>
-              <div class="flex items-center justify-between text-muted-foreground">
-                <span>Department:</span>
-                <span class="font-medium text-foreground">{{ emp.department }}</span>
+
+              <!-- Folders Preview (Max 3 folders, or +X more) -->
+              <div class="bg-muted/30 border rounded-lg p-2.5 space-y-1.5 text-xs">
+                <!-- If 0 folders -->
+                <div
+                  v-if="getEmployeeFolders(emp.id).length === 0"
+                  class="text-center py-2 space-y-1.5"
+                >
+                  <p class="text-[11px] text-muted-foreground">No folders assigned yet</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="h-7 text-[11px] gap-1 w-full"
+                    @click="openAssignFolderModal(emp)"
+                  >
+                    <FolderPlus class="size-3" />
+                    <span>Assign Folder</span>
+                  </Button>
+                </div>
+
+                <!-- If has folders: list up to 3 folders -->
+                <div v-else class="space-y-1">
+                  <div
+                    v-for="folder in getEmployeeFolders(emp.id).slice(0, 3)"
+                    :key="folder.id"
+                    class="flex items-center gap-1.5 py-0.5 text-xs group/item cursor-pointer"
+                    title="Open workspace to view folder"
+                    @click="openEmployeeWorkspace(emp)"
+                  >
+                    <Folder class="size-3 text-primary shrink-0" />
+                    <span class="truncate text-foreground group-hover/item:text-primary transition-colors">
+                      {{ folder.name }}
+                    </span>
+                  </div>
+
+                  <!-- "+X more" link if more than 3 folders -->
+                  <button
+                    v-if="getEmployeeFolders(emp.id).length > 3"
+                    type="button"
+                    class="text-[11px] font-medium text-primary hover:underline flex items-center gap-0.5 pt-1 cursor-pointer"
+                    @click="openEmployeeWorkspace(emp)"
+                  >
+                    <span>+{{ getEmployeeFolders(emp.id).length - 3 }} more folders</span>
+                    <ChevronRight class="size-3" />
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- Workspace Action Button -->
-            <Button variant="outline" class="w-full gap-2 text-xs h-9 group-hover:border-primary group-hover:text-primary transition-colors">
-              <FolderOpen class="size-3.5" />
-              <span>Open Employee Workspace</span>
-              <ChevronRight class="size-3.5 ml-auto" />
-            </Button>
+            <!-- Card Actions -->
+            <div class="flex items-center gap-2 pt-2 border-t mt-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                class="flex-1 text-xs h-8 gap-1.5 group-hover:border-primary group-hover:text-primary transition-colors"
+                @click="openEmployeeWorkspace(emp)"
+              >
+                <FolderOpen class="size-3.5" />
+                <span>View Folders</span>
+                <ChevronRight class="size-3 ml-auto opacity-70" />
+              </Button>
+
+              <!-- <Button
+                variant="ghost"
+                size="icon"
+                class="size-8 text-muted-foreground hover:text-primary"
+                title="Assign new folder"
+                @click="openAssignFolderModal(emp)"
+              >
+                <FolderPlus class="size-4" />
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon" class="size-8 text-muted-foreground">
+                    <MoreHorizontal class="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" class="w-44 text-xs">
+                  <DropdownMenuItem class="cursor-pointer gap-2" @click="openEmployeeWorkspace(emp)">
+                    <FolderOpen class="size-3.5" /> View Workspace
+                  </DropdownMenuItem>
+                  <DropdownMenuItem class="cursor-pointer gap-2" @click="openAssignFolderModal(emp)">
+                    <FolderPlus class="size-3.5" /> Assign Folder
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem class="cursor-pointer gap-2" @click="copyEmployeeId(emp.id)">
+                    <Copy class="size-3.5" /> Copy Employee ID
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu> -->
+            </div>
           </CardContent>
         </Card>
+      </div>
+
+      <!-- LIST VIEW -->
+      <div
+        v-else-if="directoryViewMode === 'list'"
+        class="border rounded-xl bg-card overflow-hidden shadow-2xs"
+      >
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[280px]">Employee</TableHead>
+              <TableHead>Position</TableHead>
+              <TableHead>Department</TableHead>
+              <TableHead class="text-center">Assigned Folders</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Last Activity</TableHead>
+              <TableHead class="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow
+              v-for="emp in paginatedEmployees"
+              :key="emp.id"
+              class="cursor-pointer group hover:bg-muted/40 transition-colors"
+              @click="openEmployeeWorkspace(emp)"
+            >
+              <!-- Employee Column (Avatar + Name + ID) -->
+              <TableCell>
+                <div class="flex items-center gap-3">
+                  <Avatar class="size-9 border group-hover:border-primary transition-colors shrink-0">
+                    <AvatarFallback class="bg-primary/10 text-primary text-xs font-bold">
+                      {{ emp.name ? emp.name.split(' ').map((n) => n[0]).join('') : 'U' }}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div class="min-w-0">
+                    <div class="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                      {{ emp.name }}
+                    </div>
+                    <div class="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <span>{{ emp.username || emp.id }}</span>
+                    </div>
+                  </div>
+                </div>
+              </TableCell>
+
+              <!-- Position -->
+              <TableCell class="font-medium text-foreground">
+                {{ emp.position }}
+              </TableCell>
+
+              <!-- Department -->
+              <TableCell>
+                <Badge variant="outline" class="font-normal text-xs text-muted-foreground bg-muted/40">
+                  {{ emp.department || 'Field Ops' }}
+                </Badge>
+              </TableCell>
+
+              <!-- Assigned Folders & Workload Badge -->
+              <TableCell class="text-center">
+                <Badge
+                  :class="[
+                    'text-xs font-semibold px-2.5 py-0.5 border',
+                    getWorkloadClass(getEmployeeFolders(emp.id).length),
+                  ]"
+                >
+                  📁 {{ getEmployeeFolders(emp.id).length }}
+                </Badge>
+              </TableCell>
+
+              <!-- Status -->
+              <TableCell>
+                <Badge
+                  variant="outline"
+                  :class="[
+                    'text-[11px] capitalize gap-1 font-medium px-2 py-0.5',
+                    getStatusBadgeClass(getEmployeeStatus(emp)),
+                  ]"
+                >
+                  <span class="size-1.5 rounded-full" :class="getStatusDotClass(getEmployeeStatus(emp))" />
+                  {{ getEmployeeStatus(emp) }}
+                </Badge>
+              </TableCell>
+
+              <!-- Last Activity -->
+              <TableCell class="text-muted-foreground text-xs">
+                {{ getEmployeeLastActivity(emp) }}
+              </TableCell>
+
+              <!-- Row Actions -->
+              <TableCell class="text-right" @click.stop>
+                <div class="flex items-center justify-end gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    class="h-8 text-xs gap-1 hover:border-primary hover:text-primary"
+                    title="Open Workspace"
+                    @click="openEmployeeWorkspace(emp)"
+                  >
+                    <FolderOpen class="size-3.5" />
+                    <span class="hidden sm:inline">View Folders</span>
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    class="size-8 text-muted-foreground hover:text-primary"
+                    title="Assign Folder"
+                    @click="openAssignFolderModal(emp)"
+                  >
+                    <FolderPlus class="size-3.5" />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button size="icon" variant="ghost" class="size-8">
+                        <MoreHorizontal class="size-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-44 text-xs">
+                      <DropdownMenuItem class="cursor-pointer gap-2" @click="openEmployeeWorkspace(emp)">
+                        <FolderOpen class="size-3.5" /> View Workspace
+                      </DropdownMenuItem>
+                      <DropdownMenuItem class="cursor-pointer gap-2" @click="openAssignFolderModal(emp)">
+                        <FolderPlus class="size-3.5" /> Assign Folder
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem class="cursor-pointer gap-2" @click="copyEmployeeId(emp.id)">
+                        <Copy class="size-3.5" /> Copy ID: {{ emp.id }}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      <!-- PAGINATION CONTROLS -->
+      <div
+        v-if="filteredEmployees.length > itemsPerPage"
+        class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-muted-foreground border-t"
+      >
+        <div>
+          Showing <span class="font-medium text-foreground">{{ (currentPage - 1) * itemsPerPage + 1 }}</span>
+          to <span class="font-medium text-foreground">{{ Math.min(currentPage * itemsPerPage, filteredEmployees.length) }}</span>
+          of <span class="font-medium text-foreground">{{ filteredEmployees.length }}</span> field personnel
+        </div>
+        <div class="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            class="h-8 px-2.5 text-xs gap-1"
+            :disabled="currentPage === 1"
+            @click="currentPage--"
+          >
+            <ChevronLeft class="size-3.5" />
+            <span>Previous</span>
+          </Button>
+          <div class="px-2.5 font-medium text-foreground text-xs">
+            Page {{ currentPage }} of {{ totalPages }}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            class="h-8 px-2.5 text-xs gap-1"
+            :disabled="currentPage >= totalPages"
+            @click="currentPage++"
+          >
+            <span>Next</span>
+            <ChevronRight class="size-3.5" />
+          </Button>
+        </div>
       </div>
     </div>
 
@@ -922,9 +1644,9 @@ const handleDownload = (doc: DocumentType) => {
     <!-- Modals -->
     <NewFolderModal
       :is-open="isNewFolderModalOpen"
-      :owner-name="selectedEmployee?.name"
+      :owner-name="selectedEmployee?.name || targetEmployeeForNewFolder?.name"
       :parent-folder-name="currentFolder?.name"
-      @close="isNewFolderModalOpen = false"
+      @close="isNewFolderModalOpen = false; targetEmployeeForNewFolder = null"
       @create="handleCreateFolder"
     />
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Wifi,
@@ -8,6 +8,11 @@ import {
   Sun,
   Moon,
   LogOut,
+  UserRound,
+  History,
+  Settings,
+  UsersRound,
+  ChevronDown,
 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +28,24 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/composables/useAuth'
 import { useOfflineSync } from '@/composables/useOfflineSync'
+import type { NavbarItem } from '@/types'
+
+const props = withDefaults(
+  defineProps<{
+    userMenuItems?: NavbarItem[]
+    quickNavItems?: NavbarItem[]
+    selectedQuickNav?: string
+  }>(),
+  {
+    userMenuItems: undefined,
+    quickNavItems: () => [],
+    selectedQuickNav: '',
+  },
+)
+
+const emit = defineEmits<{
+  (e: 'selectQuickNav', item: NavbarItem): void
+}>()
 
 const router = useRouter()
 const { currentUser, isAdmin, logout } = useAuth()
@@ -58,11 +81,88 @@ const handleLogout = () => {
   logout()
   router.push('/login')
 }
+
+// Built-in type-safe navigation items with Lucide Component icons
+const defaultUserMenuItems = computed<NavbarItem[]>(() => {
+  const items: NavbarItem[] = [
+    {
+      label: 'User Profile & Storage',
+      value: 'profile',
+      url: '/profile',
+      icon: UserRound,
+    },
+  ]
+
+  if (isAdmin.value) {
+    items.push(
+      {
+        label: 'Field Manager',
+        value: 'field-manager',
+        url: '/field-manager',
+        icon: UsersRound,
+      },
+      {
+        label: 'Admin Activity Trail',
+        value: 'activity',
+        url: '/admin/activity',
+        icon: History,
+      },
+      {
+        label: 'System Settings',
+        value: 'settings',
+        url: '/admin/settings',
+        icon: Settings,
+      },
+    )
+  }
+
+  items.push({
+    label: 'Sign Out',
+    value: 'logout',
+    icon: LogOut,
+    destructive: true,
+    separatorBefore: true,
+    action: handleLogout,
+  })
+
+  return items
+})
+
+const activeUserMenuItems = computed<NavbarItem[]>(() => {
+  return props.userMenuItems && props.userMenuItems.length > 0
+    ? props.userMenuItems
+    : defaultUserMenuItems.value
+})
+
+const currentQuickNavItem = computed<NavbarItem | null>(() => {
+  if (!props.quickNavItems || props.quickNavItems.length === 0) return null
+  return (
+    props.quickNavItems.find((item) => item.value === props.selectedQuickNav) ||
+    props.quickNavItems[0]
+  )
+})
+
+const handleMenuItemClick = (item: NavbarItem) => {
+  if (item.action) {
+    item.action()
+  } else if (item.url) {
+    router.push(item.url)
+  }
+}
+
+const handleQuickNavSelect = (item: NavbarItem) => {
+  emit('selectQuickNav', item)
+  if (item.action) {
+    item.action()
+  } else if (item.url) {
+    router.push(item.url)
+  }
+}
 </script>
 
 <template>
   <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-background/95 backdrop-blur-xs px-3 sm:px-4">
-    <!-- Left: Sidebar toggle and Brand title -->
+    <!-- Left: Sidebar toggle and Brand title / Quick Select Dropdown -->
     <div class="flex items-center gap-2 sm:gap-3">
       <SidebarTrigger class="-ml-1" />
       <div class="flex items-center gap-2">
@@ -75,6 +175,40 @@ const handleLogout = () => {
         >
           {{ isAdmin ? 'Admin Mode' : 'Field Employee' }}
         </Badge>
+      </div>
+
+      <!-- Optional Quick Select / Dropdown with Icon Support in Trigger and Items -->
+      <div v-if="quickNavItems && quickNavItems.length > 0" class="hidden md:block ml-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="outline" size="sm" class="h-8 gap-1.5 text-xs font-normal">
+              <component
+                :is="currentQuickNavItem?.icon"
+                v-if="currentQuickNavItem?.icon"
+                class="size-3.5 text-muted-foreground shrink-0"
+              />
+              <span>{{ currentQuickNavItem?.label || 'Navigation' }}</span>
+              <ChevronDown class="size-3 text-muted-foreground ml-1 shrink-0 opacity-70" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" class="w-48 text-xs">
+            <DropdownMenuItem
+              v-for="item in quickNavItems"
+              :key="item.value || item.label"
+              class="cursor-pointer gap-2"
+              @click="handleQuickNavSelect(item)"
+            >
+              <component
+                :is="item.icon"
+                v-if="item.icon"
+                class="size-3.5 text-muted-foreground shrink-0"
+              />
+              <span :class="item.value === selectedQuickNav ? 'font-semibold text-foreground' : ''">
+                {{ item.label }}
+              </span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
 
@@ -136,7 +270,7 @@ const handleLogout = () => {
       </div>
     </div>
 
-    <!-- Right: Theme Switcher & User Profile Menu -->
+    <!-- Right: Theme Switcher & User Profile Menu (Icon-supported dropdown items) -->
     <div class="flex items-center gap-1.5 sm:gap-2">
       <!-- Theme Switcher -->
       <Button
@@ -161,7 +295,7 @@ const handleLogout = () => {
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-56">
+        <DropdownMenuContent align="end" class="w-56 text-xs">
           <DropdownMenuLabel>
             <div class="flex flex-col space-y-1">
               <p class="text-sm font-medium leading-none">{{ currentUser?.name }}</p>
@@ -169,28 +303,25 @@ const handleLogout = () => {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem class="cursor-pointer" @click="router.push('/profile')">
-            User Profile &amp; Storage
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            v-if="isAdmin"
-            class="cursor-pointer"
-            @click="router.push('/admin/activity')"
-          >
-            Admin Activity Trail
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            v-if="isAdmin"
-            class="cursor-pointer"
-            @click="router.push('/admin/settings')"
-          >
-            System Settings
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem class="cursor-pointer text-destructive focus:text-destructive" @click="handleLogout">
-            <LogOut class="size-4 mr-2" />
-            <span>Sign Out</span>
-          </DropdownMenuItem>
+
+          <!-- Dynamic Icon-Supported Navigation Items -->
+          <template v-for="(item, idx) in activeUserMenuItems" :key="item.value || item.label || idx">
+            <DropdownMenuSeparator v-if="item.separatorBefore" />
+            <DropdownMenuItem
+              class="cursor-pointer gap-2"
+              :class="item.destructive ? 'text-destructive focus:text-destructive' : ''"
+              :disabled="item.disabled"
+              @click="handleMenuItemClick(item)"
+            >
+              <component
+                :is="item.icon"
+                v-if="item.icon"
+                class="size-4 shrink-0"
+                :class="item.destructive ? 'text-destructive' : 'text-muted-foreground'"
+              />
+              <span>{{ item.label }}</span>
+            </DropdownMenuItem>
+          </template>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

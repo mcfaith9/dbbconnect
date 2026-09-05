@@ -21,12 +21,15 @@ const projectCode = ref('NAGA-2026-PH2')
 const syncInterval = ref(30)
 const isSaved = ref(false)
 
-const apiUrl = ref(api.getApiBaseUrl())
+const apiUrl = ref(api.getApiBaseUrl() || (api.getBaseUrl() ? `${api.getBaseUrl()}/api` : ''))
 const isTestingConnection = ref(false)
 const connectionStatus = ref<'idle' | 'connected' | 'failed'>('idle')
 const connectionMessage = ref('')
 
 const testConnection = async () => {
+  if (apiUrl.value) {
+    api.setBaseUrl(apiUrl.value, false)
+  }
   isTestingConnection.value = true
   connectionStatus.value = 'idle'
   connectionMessage.value = ''
@@ -39,7 +42,8 @@ const testConnection = async () => {
       connectionMessage.value = `Laravel API is online and responding (${elapsed}ms). Health endpoint returned 200 OK.`
     } else {
       connectionStatus.value = 'failed'
-      connectionMessage.value = `Unable to reach ${apiUrl.value}/health. Please verify host and port.`
+      const target = api.getApiBaseUrl() || apiUrl.value
+      connectionMessage.value = `Unable to reach ${target}/health. Please verify host, port, and firewall rule.`
     }
   } catch (e: any) {
     connectionStatus.value = 'failed'
@@ -49,9 +53,18 @@ const testConnection = async () => {
   }
 }
 
+const handleResetApiUrl = () => {
+  api.resetBaseUrl()
+  apiUrl.value = api.getApiBaseUrl()
+  testConnection()
+}
+
 const handleSave = () => {
   if (apiUrl.value) {
-    api.setBaseUrl(apiUrl.value)
+    api.setBaseUrl(apiUrl.value, true)
+  } else {
+    api.resetBaseUrl()
+    apiUrl.value = api.getApiBaseUrl()
   }
   isSaved.value = true
   setTimeout(() => (isSaved.value = false), 2500)
@@ -105,9 +118,18 @@ onMounted(() => {
       </CardHeader>
       <CardContent class="space-y-4">
         <div class="space-y-2">
-          <Label for="api-url">Laravel API Base URL</Label>
+          <div class="flex items-center justify-between">
+            <Label for="api-url">Laravel API Base URL</Label>
+            <button
+              type="button"
+              class="text-xs text-primary hover:underline"
+              @click="handleResetApiUrl"
+            >
+              Reset to Env Default
+            </button>
+          </div>
           <div class="flex gap-2">
-            <Input id="api-url" v-model="apiUrl" placeholder="http://100.87.162.99:8000/api" class="font-mono text-xs" />
+            <Input id="api-url" v-model="apiUrl" placeholder="e.g. http://192.168.1.38:8000/api or https://api.yourdomain.com/api" class="font-mono text-xs" />
             <Button variant="outline" class="gap-1.5 shrink-0" :disabled="isTestingConnection" @click="testConnection">
               <RefreshCw class="size-3.5" :class="{ 'animate-spin': isTestingConnection }" />
               Test Connection

@@ -12,7 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Enable CORS for API routes (stateless Sanctum Bearer token authentication)
+        // Explicitly exempt all API routes from CSRF token verification
+        // (Stateless Laravel Sanctum Bearer token architecture)
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+        ]);
+
+        // Enable CORS for API routes
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);

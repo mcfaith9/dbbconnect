@@ -1,11 +1,19 @@
 /**
- * DBB Connect API Client
+ * DBB Connect Centralized API Client
+ *
  * Provides communication with the Laravel Sanctum REST API.
- * Configurable via VITE_API_URL environment variable.
+ * Base API URL Resolution:
+ * 1. Runtime override stored in localStorage (if customized via Admin Settings)
+ * 2. Vite environment variable: import.meta.env.VITE_API_URL (.env.development / .env.production)
+ * 3. Safe fallback: empty string (enables graceful local offline storage mode)
+ *
+ * All requests authenticate using Laravel Sanctum Personal Access Tokens:
+ * Authorization: Bearer <token>
  */
 
-const DEFAULT_API_URL = 'http://100.87.162.99:8000'
+const DEFAULT_API_URL = ''
 const TOKEN_STORAGE_KEY = 'dbb_connect_api_token'
+const CUSTOM_API_URL_STORAGE_KEY = 'dbb_connect_custom_api_url'
 
 export interface ApiResponse<T = any> {
   success: boolean
@@ -23,13 +31,15 @@ class ApiClient {
   private lastHealthCheck: number = 0
 
   constructor() {
-    this.baseUrl = this.normalizeUrl(import.meta.env.VITE_API_URL || DEFAULT_API_URL)
+    const savedCustomUrl = typeof window !== 'undefined' ? window.localStorage.getItem(CUSTOM_API_URL_STORAGE_KEY) : null
+    const envUrl = (import.meta.env.VITE_API_URL as string | undefined) || ''
+    this.baseUrl = this.normalizeUrl(savedCustomUrl || envUrl || DEFAULT_API_URL)
   }
 
   private normalizeUrl(url: string): string {
     let clean = (url || '').trim().replace(/\/+$/, '')
     if (clean.endsWith('/api')) {
-      clean = clean.slice(0, -4)
+      clean = clean.slice(0, -4).replace(/\/+$/, '')
     }
     return clean
   }
@@ -39,11 +49,27 @@ class ApiClient {
   }
 
   public getApiBaseUrl(): string {
-    return `${this.baseUrl}/api`
+    return this.baseUrl ? `${this.baseUrl}/api` : ''
   }
 
-  public setBaseUrl(url: string): void {
+  public setBaseUrl(url: string, persist = false): void {
     this.baseUrl = this.normalizeUrl(url)
+    this.isServerOnline = null
+    if (persist && typeof window !== 'undefined') {
+      if (this.baseUrl) {
+        window.localStorage.setItem(CUSTOM_API_URL_STORAGE_KEY, this.baseUrl)
+      } else {
+        window.localStorage.removeItem(CUSTOM_API_URL_STORAGE_KEY)
+      }
+    }
+  }
+
+  public resetBaseUrl(): void {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(CUSTOM_API_URL_STORAGE_KEY)
+    }
+    const envUrl = (import.meta.env.VITE_API_URL as string | undefined) || ''
+    this.baseUrl = this.normalizeUrl(envUrl)
     this.isServerOnline = null
   }
 
@@ -66,6 +92,11 @@ class ApiClient {
    * Fast health check to verify if the Laravel backend is reachable
    */
   public async checkHealth(force = false): Promise<boolean> {
+    if (!this.baseUrl) {
+      this.isServerOnline = false
+      return false
+    }
+
     const now = Date.now()
     if (!force && this.isServerOnline !== null && now - this.lastHealthCheck < 15000) {
       return this.isServerOnline
@@ -99,6 +130,14 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    if (!this.baseUrl) {
+      return {
+        success: false,
+        isOffline: true,
+        error: 'Backend API offline or not configured. Using local storage.',
+      }
+    }
+
     const token = this.getToken()
     const url = `${this.baseUrl}/api/${endpoint.replace(/^\//, '')}`
 

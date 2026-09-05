@@ -71,10 +71,11 @@ export function useAuth() {
     name: string,
     email: string,
     role: UserRole = 'employee',
-    position = 'Field Engineer'
-  ): Promise<{ success: boolean; user: AuthUser }> {
-    const result = await AuthService.register(name, email, role, position)
-    if (result.success) {
+    position = 'Field Engineer',
+    password = 'password'
+  ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+    const result = await AuthService.register(name, email, role, position, password)
+    if (result.success && result.user) {
       currentUser.value = result.user
       const users = await UserService.getAllUsers()
       allUsers.value = users

@@ -58,9 +58,17 @@ class AuthController extends Controller
             ? Hash::make($request->input('password')) 
             : Hash::make('ilovedbb');
 
+        // Ensure username is unique in database
+        $username = $name;
+        $counter = 1;
+        while (User::where('username', $username)->exists()) {
+            $username = $name . ' ' . $counter;
+            $counter++;
+        }
+
         $user = User::create([
             'id' => $id,
-            'username' => $name,
+            'username' => $username,
             'name' => $name,
             'display_name' => $name,
             'email' => $email,

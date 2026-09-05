@@ -63,6 +63,14 @@ class UserController extends Controller
             ], 404);
         }
 
+        $authUser = $request->user();
+        if ($authUser && $authUser->role === 'employee' && $authUser->id !== $id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized: Employees can only edit their own profile.',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', 'unique:users,email,' . $user->id],

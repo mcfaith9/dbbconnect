@@ -207,75 +207,9 @@ export const AuthService = {
         return { success: true, user: authUser }
       }
 
-      if (apiRes.isOffline) {
-        // Fallback to local authentication against TEST_ACCOUNTS and local IndexedDB users
-        await storage.init()
-        const allUsers = await storage.getAll<User>(storage.STORES.USERS)
-
-        const testMatch = TEST_ACCOUNTS.find(
-          (a) =>
-            a.username.toLowerCase() === cleanUser.toLowerCase() ||
-            a.email.toLowerCase() === cleanUser.toLowerCase() ||
-            a.displayName.toLowerCase() === cleanUser.toLowerCase() ||
-            a.name.toLowerCase() === cleanUser.toLowerCase()
-        )
-
-        if (testMatch) {
-          if (testMatch.password === cleanPass || cleanPass === 'ilovedbb' || cleanPass === 'password') {
-            const authUser: AuthUser = {
-              id: testMatch.id,
-              username: testMatch.username,
-              displayName: testMatch.displayName,
-              name: testMatch.name,
-              email: testMatch.email,
-              role: testMatch.role,
-              position: testMatch.position,
-              department: testMatch.department,
-              phone: testMatch.phone,
-              assignedProject: testMatch.assignedProject,
-            }
-            this.saveSession(authUser)
-            return { success: true, user: authUser }
-          } else {
-            return { success: false, error: 'Invalid password for this account.' }
-          }
-        }
-
-        const storedUser = allUsers.find(
-          (u) =>
-            u.username?.toLowerCase() === cleanUser.toLowerCase() ||
-            u.email?.toLowerCase() === cleanUser.toLowerCase() ||
-            u.name?.toLowerCase() === cleanUser.toLowerCase() ||
-            u.displayName?.toLowerCase() === cleanUser.toLowerCase()
-        )
-
-        if (storedUser) {
-          const authUser: AuthUser = {
-            id: storedUser.id,
-            username: storedUser.username || storedUser.name,
-            displayName: storedUser.displayName || storedUser.name,
-            name: storedUser.name,
-            email: storedUser.email,
-            role: storedUser.role,
-            position: storedUser.position,
-            department: storedUser.department,
-            phone: storedUser.phone,
-            assignedProject: storedUser.assignedProject,
-            avatar: storedUser.avatar,
-          }
-          this.saveSession(authUser)
-          return { success: true, user: authUser }
-        }
-
-        return {
-          success: false,
-          error: 'Account not found. Select an official test account to sign in.',
-        }
-      }
-
       return {
         success: false,
-        error: apiRes.error || 'Invalid username or password',
+        error: apiRes.error || 'Invalid username or password.',
       }
     } catch (e: any) {
       return {
@@ -362,34 +296,6 @@ export const AuthService = {
           })
         } catch {}
 
-        return { success: true, user: authUser }
-      }
-
-      if (apiRes.isOffline) {
-        // Fallback: register into local storage directly so registration works in offline/standalone mode
-        await storage.init()
-        const newId = `employee-${Date.now()}`
-        const authUser: AuthUser = {
-          id: newId,
-          username: cleanName,
-          displayName: cleanName,
-          name: cleanName,
-          email: cleanEmail,
-          role: _role,
-          position: position || 'Field Engineer',
-          department: 'Field Operations',
-        }
-        await storage.put<User>(storage.STORES.USERS, {
-          id: authUser.id,
-          name: authUser.name,
-          username: authUser.username,
-          displayName: authUser.displayName,
-          email: authUser.email,
-          role: authUser.role,
-          position: authUser.position,
-          department: authUser.department,
-        })
-        this.saveSession(authUser)
         return { success: true, user: authUser }
       }
 

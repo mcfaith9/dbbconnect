@@ -199,25 +199,29 @@ const backToEmployeeList = () => {
 // Folder Actions
 const handleCreateFolder = async (data: { name: string; color: string }) => {
   if (!selectedEmployee.value) return
-  const newFolder = await FolderService.createFolder({
-    name: data.name,
-    parentId: currentFolderId.value,
-    ownerId: selectedEmployee.value.id,
-    color: data.color,
-  })
-
-  folders.value.push(newFolder)
-
-  if (currentUser.value) {
-    await ActivityService.logActivity({
-      user: currentUser.value,
-      type: 'create_folder',
-      actionTitle: 'Folder Created',
-      description: `Created folder "${data.name}" for ${selectedEmployee.value.name}`,
-      targetName: data.name,
-      targetId: newFolder.id,
-      employeeName: selectedEmployee.value.name,
+  try {
+    const newFolder = await FolderService.createFolder({
+      name: data.name,
+      parentId: currentFolderId.value,
+      ownerId: selectedEmployee.value.id,
+      color: data.color,
     })
+
+    folders.value.push(newFolder)
+
+    if (currentUser.value) {
+      await ActivityService.logActivity({
+        user: currentUser.value,
+        type: 'create_folder',
+        actionTitle: 'Folder Created',
+        description: `Created folder "${data.name}" for ${selectedEmployee.value.name}`,
+        targetName: data.name,
+        targetId: newFolder.id,
+        employeeName: selectedEmployee.value.name,
+      })
+    }
+  } catch (err: any) {
+    alert(err.message || 'Failed to create folder on server.')
   }
 }
 
@@ -235,18 +239,22 @@ const openMoveFolder = (folder: FolderType) => {
 
 const handleDeleteFolder = async (folder: FolderType) => {
   if (!confirm(`Are you sure you want to delete folder "${folder.name}" and its contents?`)) return
-  await FolderService.deleteFolder(folder.id)
-  folders.value = folders.value.filter((f) => f.id !== folder.id)
+  try {
+    await FolderService.deleteFolder(folder.id)
+    folders.value = folders.value.filter((f) => f.id !== folder.id)
 
-  if (currentUser.value && selectedEmployee.value) {
-    await ActivityService.logActivity({
-      user: currentUser.value,
-      type: 'delete',
-      actionTitle: 'Folder Deleted',
-      description: `Deleted folder "${folder.name}" from ${selectedEmployee.value.name}'s workspace`,
-      targetName: folder.name,
-      employeeName: selectedEmployee.value.name,
-    })
+    if (currentUser.value && selectedEmployee.value) {
+      await ActivityService.logActivity({
+        user: currentUser.value,
+        type: 'delete',
+        actionTitle: 'Folder Deleted',
+        description: `Deleted folder "${folder.name}" from ${selectedEmployee.value.name}'s workspace`,
+        targetName: folder.name,
+        employeeName: selectedEmployee.value.name,
+      })
+    }
+  } catch (err: any) {
+    alert(err.message || 'Failed to delete folder on server.')
   }
 }
 
@@ -254,39 +262,43 @@ const handleDeleteFolder = async (folder: FolderType) => {
 const handleUploadFiles = async (files: any[]) => {
   if (!selectedEmployee.value || !currentUser.value) return
 
-  for (const file of files) {
-    const uploaded = await DocumentService.uploadDocument({
-      name: file.name,
-      originalName: file.originalName || file.name,
-      mimeType: file.mimeType,
-      size: file.size,
-      folderId: currentFolderId.value,
-      ownerId: selectedEmployee.value.id,
-      uploadedBy: {
-        id: currentUser.value.id,
-        name: currentUser.value.name,
-        role: currentUser.value.role,
-      },
-      previewUrl: file.previewUrl,
-      thumbnailUrl: file.thumbnailUrl,
-      textContent: file.textContent,
-      docxHtml: file.docxHtml,
-      dataUrl: file.dataUrl,
-      pageCount: file.pageCount,
-      assignedTo: [selectedEmployee.value.id],
-    })
+  try {
+    for (const file of files) {
+      const uploaded = await DocumentService.uploadDocument({
+        name: file.name,
+        originalName: file.originalName || file.name,
+        mimeType: file.mimeType,
+        size: file.size,
+        folderId: currentFolderId.value,
+        ownerId: selectedEmployee.value.id,
+        uploadedBy: {
+          id: currentUser.value.id,
+          name: currentUser.value.name,
+          role: currentUser.value.role,
+        },
+        previewUrl: file.previewUrl,
+        thumbnailUrl: file.thumbnailUrl,
+        textContent: file.textContent,
+        docxHtml: file.docxHtml,
+        dataUrl: file.dataUrl,
+        pageCount: file.pageCount,
+        assignedTo: [selectedEmployee.value.id],
+      })
 
-    documents.value.push(uploaded)
+      documents.value.push(uploaded)
 
-    await ActivityService.logActivity({
-      user: currentUser.value,
-      type: 'upload',
-      actionTitle: 'Document Uploaded',
-      description: `Uploaded "${file.name}" to ${selectedEmployee.value.name}'s workspace`,
-      targetName: file.name,
-      targetId: uploaded.id,
-      employeeName: selectedEmployee.value.name,
-    })
+      await ActivityService.logActivity({
+        user: currentUser.value,
+        type: 'upload',
+        actionTitle: 'Document Uploaded',
+        description: `Uploaded "${file.name}" to ${selectedEmployee.value.name}'s workspace`,
+        targetName: file.name,
+        targetId: uploaded.id,
+        employeeName: selectedEmployee.value.name,
+      })
+    }
+  } catch (err: any) {
+    alert(err.message || 'Failed to upload document to server.')
   }
 }
 
@@ -335,46 +347,58 @@ const openMoveDoc = (doc: DocumentType) => {
 
 const handleRenameItem = async (newName: string) => {
   if (!activeItemForAction.value) return
-  if (activeItemType.value === 'folder') {
-    const updated = await FolderService.renameFolder(activeItemForAction.value.id, newName)
-    if (updated) {
-      const idx = folders.value.findIndex((f) => f.id === updated.id)
-      if (idx >= 0) folders.value[idx] = updated
+  try {
+    if (activeItemType.value === 'folder') {
+      const updated = await FolderService.renameFolder(activeItemForAction.value.id, newName)
+      if (updated) {
+        const idx = folders.value.findIndex((f) => f.id === updated.id)
+        if (idx >= 0) folders.value[idx] = updated
+      }
+    } else {
+      const updated = await DocumentService.renameDocument(activeItemForAction.value.id, newName)
+      if (updated) {
+        const idx = documents.value.findIndex((d) => d.id === updated.id)
+        if (idx >= 0) documents.value[idx] = updated
+      }
     }
-  } else {
-    const updated = await DocumentService.renameDocument(activeItemForAction.value.id, newName)
-    if (updated) {
-      const idx = documents.value.findIndex((d) => d.id === updated.id)
-      if (idx >= 0) documents.value[idx] = updated
-    }
+  } catch (err: any) {
+    alert(err.message || 'Failed to rename item on server.')
   }
 }
 
 const handleMoveItem = async (targetFolderId: string | null) => {
   if (!activeItemForAction.value) return
-  if (activeItemType.value === 'folder') {
-    await FolderService.moveFolder(activeItemForAction.value.id, targetFolderId)
-    folders.value = folders.value.filter((f) => f.id !== activeItemForAction.value?.id)
-  } else {
-    await DocumentService.moveDocument(activeItemForAction.value.id, targetFolderId)
-    documents.value = documents.value.filter((d) => d.id !== activeItemForAction.value?.id)
+  try {
+    if (activeItemType.value === 'folder') {
+      await FolderService.moveFolder(activeItemForAction.value.id, targetFolderId)
+      folders.value = folders.value.filter((f) => f.id !== activeItemForAction.value?.id)
+    } else {
+      await DocumentService.moveDocument(activeItemForAction.value.id, targetFolderId)
+      documents.value = documents.value.filter((d) => d.id !== activeItemForAction.value?.id)
+    }
+  } catch (err: any) {
+    alert(err.message || 'Failed to move item on server.')
   }
 }
 
 const handleDeleteDoc = async (doc: DocumentType) => {
   if (!confirm(`Are you sure you want to delete "${doc.name}"?`)) return
-  await DocumentService.deleteDocument(doc.id)
-  documents.value = documents.value.filter((d) => d.id !== doc.id)
+  try {
+    await DocumentService.deleteDocument(doc.id)
+    documents.value = documents.value.filter((d) => d.id !== doc.id)
 
-  if (currentUser.value && selectedEmployee.value) {
-    await ActivityService.logActivity({
-      user: currentUser.value,
-      type: 'delete',
-      actionTitle: 'Document Deleted',
-      description: `Deleted "${doc.name}" from ${selectedEmployee.value.name}'s files`,
-      targetName: doc.name,
-      employeeName: selectedEmployee.value.name,
-    })
+    if (currentUser.value && selectedEmployee.value) {
+      await ActivityService.logActivity({
+        user: currentUser.value,
+        type: 'delete',
+        actionTitle: 'Document Deleted',
+        description: `Deleted "${doc.name}" from ${selectedEmployee.value.name}'s files`,
+        targetName: doc.name,
+        employeeName: selectedEmployee.value.name,
+      })
+    }
+  } catch (err: any) {
+    alert(err.message || 'Failed to delete document on server.')
   }
 }
 

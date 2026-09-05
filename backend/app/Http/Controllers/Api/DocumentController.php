@@ -185,7 +185,7 @@ class DocumentController extends Controller
     /**
      * Show single document.
      */
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
         $doc = Document::with(['assignedUsers', 'comments'])->find($id);
 
@@ -194,6 +194,20 @@ class DocumentController extends Controller
                 'success' => false,
                 'message' => 'Document not found.',
             ], 404);
+        }
+
+        $user = $request->user();
+        if ($user && $user->role === 'employee') {
+            $isAllowed = $doc->owner_id === $user->id ||
+                         $doc->owner_id === 'shared' ||
+                         $doc->is_shared ||
+                         $doc->assignedUsers->contains('id', $user->id);
+            if (!$isAllowed) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to this document.',
+                ], 403);
+            }
         }
 
         return response()->json([
@@ -214,6 +228,17 @@ class DocumentController extends Controller
                 'success' => false,
                 'message' => 'Document not found.',
             ], 404);
+        }
+
+        $user = $request->user();
+        if ($user && $user->role === 'employee') {
+            $isAllowed = $doc->owner_id === $user->id || $doc->uploaded_by_id === $user->id;
+            if (!$isAllowed) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: Employees can only modify their own documents.',
+                ], 403);
+            }
         }
 
         $validated = $request->validate([
@@ -262,6 +287,14 @@ class DocumentController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        if ($user && $user->role === 'employee') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized: Only admins can assign documents.',
+            ], 403);
+        }
+
         $request->validate([
             'employeeIds' => ['required', 'array'],
             'employeeIds.*' => ['string'],
@@ -291,7 +324,7 @@ class DocumentController extends Controller
     /**
      * Delete document and cleanup stored file.
      */
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
         $doc = Document::find($id);
 
@@ -300,6 +333,17 @@ class DocumentController extends Controller
                 'success' => false,
                 'message' => 'Document not found.',
             ], 404);
+        }
+
+        $user = $request->user();
+        if ($user && $user->role === 'employee') {
+            $isAllowed = $doc->owner_id === $user->id || $doc->uploaded_by_id === $user->id;
+            if (!$isAllowed) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: Employees can only delete their own documents.',
+                ], 403);
+            }
         }
 
         if ($doc->file_path && Storage::disk('public')->exists($doc->file_path)) {

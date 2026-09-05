@@ -5,17 +5,15 @@ import type { User } from '@/types'
 export const UserService = {
   async getAllUsers(): Promise<User[]> {
     try {
-      const isOnline = await api.checkHealth()
-      if (isOnline) {
-        const res = await api.get<User[]>('/users')
-        if (res.success && Array.isArray(res.data)) {
-          for (const u of res.data) {
-            await storage.put<User>(storage.STORES.USERS, u)
-          }
+      const res = await api.get<User[]>('/users')
+      if (res.success && Array.isArray(res.data)) {
+        for (const u of res.data) {
+          await storage.put<User>(storage.STORES.USERS, u)
         }
+        return res.data
       }
-    } catch {
-      // Local fallback
+    } catch (e) {
+      console.warn('API sync failed for users, checking local cache:', e)
     }
     return await storage.getAll<User>(storage.STORES.USERS)
   },
@@ -26,12 +24,20 @@ export const UserService = {
   },
 
   async getUserById(id: string): Promise<User | null> {
+    try {
+      const res = await api.get<User>(`/users/${id}`)
+      if (res.success && res.data) {
+        await storage.put<User>(storage.STORES.USERS, res.data)
+        return res.data
+      }
+    } catch (e) {
+      console.warn('API sync failed for single user:', e)
+    }
     return await storage.getById<User>(storage.STORES.USERS, id)
   },
 
   async updateUser(user: User): Promise<User> {
-    const saved = await storage.put<User>(storage.STORES.USERS, user)
-    api.put(`/users/${user.id}`, {
+    const res = await api.put<User>(`/users/${user.id}`, {
       name: user.name,
       email: user.email,
       position: user.position,
@@ -39,7 +45,14 @@ export const UserService = {
       phone: user.phone,
       assigned_project: user.assignedProject,
       avatar: user.avatar,
-    }).catch(() => {})
+    })
+
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to update user profile on Laravel server.')
+    }
+
+    const saved = res.data
+    await storage.put<User>(storage.STORES.USERS, saved)
     return saved
   },
 }

@@ -5,17 +5,15 @@ import type { ActivityLog, User } from '@/types'
 export const ActivityService = {
   async getAllActivities(): Promise<ActivityLog[]> {
     try {
-      const isOnline = await api.checkHealth()
-      if (isOnline) {
-        const res = await api.get<ActivityLog[]>('/activities')
-        if (res.success && Array.isArray(res.data)) {
-          for (const act of res.data) {
-            await storage.put<ActivityLog>(storage.STORES.ACTIVITIES, act)
-          }
+      const res = await api.get<ActivityLog[]>('/activities')
+      if (res.success && Array.isArray(res.data)) {
+        for (const act of res.data) {
+          await storage.put<ActivityLog>(storage.STORES.ACTIVITIES, act)
         }
+        return res.data
       }
-    } catch {
-      // Local fallback
+    } catch (e) {
+      console.warn('API sync failed for activities, checking local cache:', e)
     }
     const all = await storage.getAll<ActivityLog>(storage.STORES.ACTIVITIES)
     return all.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())

@@ -18,10 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*',
         ]);
 
-        // Enable CORS for API routes
-        $middleware->api(prepend: [
-            \Illuminate\Http\Middleware\HandleCors::class,
-        ]);
+        // Ensure CORS is handled globally for all incoming requests (including OPTIONS preflight)
+        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Return JSON error response for unauthenticated / validation errors on API routes

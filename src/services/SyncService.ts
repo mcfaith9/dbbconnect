@@ -27,7 +27,7 @@ export const SyncService = {
         await storage.delete(storage.STORES.SYNC_QUEUE, item.id)
         syncedCount++
       } catch (err) {
-        console.error('Error processing sync item:', item, err)
+        console.warn('Error processing sync item:', item, err)
         errors++
       }
     }

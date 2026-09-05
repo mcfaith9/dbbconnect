@@ -123,40 +123,48 @@ const openDocPreview = (doc: DocumentType) => {
 
 const handleUploadFiles = async (files: any[]) => {
   if (!currentUser.value) return
-  for (const file of files) {
-    const uploaded = await DocumentService.uploadDocument({
-      name: file.name,
-      originalName: file.originalName || file.name,
-      mimeType: file.mimeType,
-      size: file.size,
-      folderId: currentFolderId.value,
-      ownerId: currentUser.value.id,
-      uploadedBy: {
-        id: currentUser.value.id,
-        name: currentUser.value.name,
-        role: currentUser.value.role,
-      },
-      previewUrl: file.previewUrl,
-      thumbnailUrl: file.thumbnailUrl,
-      textContent: file.textContent,
-      docxHtml: file.docxHtml,
-      dataUrl: file.dataUrl,
-      pageCount: file.pageCount,
-      assignedTo: [currentUser.value.id],
-    })
-    documents.value.push(uploaded)
+  try {
+    for (const file of files) {
+      const uploaded = await DocumentService.uploadDocument({
+        name: file.name,
+        originalName: file.originalName || file.name,
+        mimeType: file.mimeType,
+        size: file.size,
+        folderId: currentFolderId.value,
+        ownerId: currentUser.value.id,
+        uploadedBy: {
+          id: currentUser.value.id,
+          name: currentUser.value.name,
+          role: currentUser.value.role,
+        },
+        previewUrl: file.previewUrl,
+        thumbnailUrl: file.thumbnailUrl,
+        textContent: file.textContent,
+        docxHtml: file.docxHtml,
+        dataUrl: file.dataUrl,
+        pageCount: file.pageCount,
+        assignedTo: [currentUser.value.id],
+      })
+      documents.value.push(uploaded)
+    }
+  } catch (err: any) {
+    alert(err.message || 'Failed to upload document to server.')
   }
 }
 
 const handleCreateFolder = async (data: { name: string; color: string }) => {
   if (!currentUser.value) return
-  const newFolder = await FolderService.createFolder({
-    name: data.name,
-    parentId: currentFolderId.value,
-    ownerId: currentUser.value.id,
-    color: data.color,
-  })
-  folders.value.push(newFolder)
+  try {
+    const newFolder = await FolderService.createFolder({
+      name: data.name,
+      parentId: currentFolderId.value,
+      ownerId: currentUser.value.id,
+      color: data.color,
+    })
+    folders.value.push(newFolder)
+  } catch (err: any) {
+    alert(err.message || 'Failed to create folder on server.')
+  }
 }
 
 const handleDownload = (doc: DocumentType) => {

@@ -66,3 +66,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/activities', [ActivityController::class, 'index']);
     Route::post('/activities', [ActivityController::class, 'store']);
 });
+
+// Explicit CORS Preflight OPTIONS handler for all API endpoints
+Route::options('/{any}', function () {
+    return response('', 204);
+})->where('any', '.*');
+

@@ -9,17 +9,15 @@ export const CommentService = {
 
   async getCommentsByDocument(documentId: string): Promise<DocumentComment[]> {
     try {
-      const isOnline = await api.checkHealth()
-      if (isOnline) {
-        const res = await api.get<DocumentComment[]>('/comments', { document_id: documentId })
-        if (res.success && Array.isArray(res.data)) {
-          for (const c of res.data) {
-            await storage.put<DocumentComment>(storage.STORES.COMMENTS, c)
-          }
+      const res = await api.get<DocumentComment[]>('/comments', { document_id: documentId })
+      if (res.success && Array.isArray(res.data)) {
+        for (const c of res.data) {
+          await storage.put<DocumentComment>(storage.STORES.COMMENTS, c)
         }
+        return res.data
       }
-    } catch {
-      // Local fallback
+    } catch (e) {
+      console.warn('API sync failed for comments, checking local cache:', e)
     }
 
     const all = await this.getAllComments()
@@ -34,6 +32,24 @@ export const CommentService = {
     content: string
     isOffline?: boolean
   }): Promise<DocumentComment> {
+    if (!params.isOffline) {
+      const res = await api.post<DocumentComment>('/comments', {
+        documentId: params.documentId,
+        content: params.content.trim(),
+        authorId: params.user.id,
+        authorName: params.user.name,
+        authorRole: params.user.role,
+        authorAvatar: params.user.avatar,
+      })
+
+      if (res.success && res.data) {
+        await storage.put<DocumentComment>(storage.STORES.COMMENTS, res.data)
+        return res.data
+      } else {
+        throw new Error(res.error || 'Failed to post comment to server.')
+      }
+    }
+
     const newComment: DocumentComment = {
       id: `comment-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       documentId: params.documentId,
@@ -43,32 +59,18 @@ export const CommentService = {
       authorAvatar: params.user.avatar,
       content: params.content.trim(),
       createdAt: new Date().toISOString(),
-      isOfflinePending: params.isOffline || false,
+      isOfflinePending: true,
     }
 
     await storage.put<DocumentComment>(storage.STORES.COMMENTS, newComment)
 
-    // Sync to API if online
-    if (!params.isOffline) {
-      api.post('/comments', {
-        documentId: params.documentId,
-        content: newComment.content,
-        authorId: params.user.id,
-        authorName: params.user.name,
-        authorRole: params.user.role,
-      }).catch(() => {})
-    }
-
-    // If created while offline, also register into sync queue
-    if (params.isOffline) {
-      await storage.put(storage.STORES.SYNC_QUEUE, {
-        id: `sync-comment-${newComment.id}`,
-        type: 'comment',
-        payload: newComment,
-        createdAt: new Date().toISOString(),
-        retryCount: 0,
-      })
-    }
+    await storage.put(storage.STORES.SYNC_QUEUE, {
+      id: `sync-comment-${newComment.id}`,
+      type: 'comment',
+      payload: newComment,
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+    })
 
     return newComment
   },

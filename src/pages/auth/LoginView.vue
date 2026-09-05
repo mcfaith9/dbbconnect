@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ShieldCheck, HardHat, ArrowRight, Lock, User as UserIcon, AlertCircle, Loader2 } from '@lucide/vue'
+import { ShieldCheck, HardHat, ArrowRight, Lock, User as UserIcon, AlertCircle, Loader2, Server, RefreshCw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { useAuth } from '@/composables/useAuth'
+import { api } from '@/services/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -18,9 +19,57 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const testAccounts = ref(getTestAccounts())
 
+// API Server Connection Diagnostics for Multi-device LAN Testing
+const currentApiUrl = ref(api.getBaseUrl() || 'http://192.168.1.38:8000')
+const serverStatus = ref<'checking' | 'online' | 'offline'>('checking')
+const isCheckingServer = ref(false)
+const showServerConfig = ref(false)
+const configUrlInput = ref(currentApiUrl.value)
+
+const checkServerHealth = async () => {
+  isCheckingServer.value = true
+  serverStatus.value = 'checking'
+  try {
+    const online = await api.checkHealth(true)
+    serverStatus.value = online ? 'online' : 'offline'
+  } catch {
+    serverStatus.value = 'offline'
+  } finally {
+    isCheckingServer.value = false
+  }
+}
+
+const handleSwitchToLan = async () => {
+  api.setBaseUrl('http://192.168.1.38:8000', true)
+  currentApiUrl.value = api.getBaseUrl()
+  configUrlInput.value = currentApiUrl.value
+  errorMessage.value = ''
+  await checkServerHealth()
+}
+
+const handleSaveCustomApiUrl = async () => {
+  if (configUrlInput.value) {
+    api.setBaseUrl(configUrlInput.value, true)
+  } else {
+    api.resetBaseUrl()
+  }
+  currentApiUrl.value = api.getBaseUrl()
+  showServerConfig.value = false
+  errorMessage.value = ''
+  await checkServerHealth()
+}
+
 onMounted(async () => {
+  // If stored custom URL was previously 100.87.162.99, immediately enforce 192.168.1.38
+  if (currentApiUrl.value.includes('100.87.162.99')) {
+    api.setBaseUrl('http://192.168.1.38:8000', true)
+    currentApiUrl.value = api.getBaseUrl()
+    configUrlInput.value = currentApiUrl.value
+  }
+
   await initAuth()
   testAccounts.value = getTestAccounts()
+  checkServerHealth()
 })
 
 const adminAccounts = testAccounts.value.filter((a) => a.role === 'admin')
@@ -42,8 +91,8 @@ const handleLogin = async () => {
     } else {
       errorMessage.value = result.error || 'Invalid username or password'
     }
-  } catch (e) {
-    errorMessage.value = 'An error occurred during login. Please try again.'
+  } catch (e: any) {
+    errorMessage.value = e?.message || 'An error occurred during login. Please try again.'
   } finally {
     isLoading.value = false
   }
@@ -85,13 +134,82 @@ const handleQuickLogin = async (account: any) => {
       </CardHeader>
 
       <CardContent class="space-y-5 px-6">
-        <!-- Error Alert -->
+        <!-- Backend API Server Bar & Diagnostics for Multi-Device LAN Testing -->
+        <div class="rounded-lg border bg-muted/40 p-2.5 text-xs space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <Server class="size-3.5 text-primary shrink-0" />
+              <span class="text-[11px] font-mono text-foreground font-medium truncate" :title="currentApiUrl">
+                {{ currentApiUrl }}
+              </span>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <span
+                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold"
+                :class="serverStatus === 'online' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-destructive/10 text-destructive'"
+              >
+                <span class="size-1.5 rounded-full" :class="serverStatus === 'online' ? 'bg-emerald-500' : 'bg-destructive animate-pulse'" />
+                {{ serverStatus === 'online' ? 'Online' : 'Offline' }}
+              </span>
+              <button
+                type="button"
+                class="text-[11px] text-primary hover:underline px-1 py-0.5"
+                @click="showServerConfig = !showServerConfig"
+              >
+                {{ showServerConfig ? 'Close' : 'Config' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Tailscale to LAN Switch Quick Action Banner -->
+          <div
+            v-if="currentApiUrl.includes('100.87.162.99')"
+            class="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-[11px] flex items-center justify-between gap-2"
+          >
+            <span>Targeting old Tailscale IP. Switch to WiFi LAN:</span>
+            <Button size="sm" variant="default" class="h-6 text-[10px] px-2" @click="handleSwitchToLan">
+              Use 192.168.1.38:8000
+            </Button>
+          </div>
+
+          <!-- Expandable API URL Editor -->
+          <div v-if="showServerConfig" class="pt-2 border-t space-y-2">
+            <div class="flex gap-1.5">
+              <Input
+                v-model="configUrlInput"
+                class="h-7 text-xs font-mono"
+                placeholder="http://192.168.1.38:8000"
+              />
+              <Button size="sm" class="h-7 text-xs px-2 shrink-0" @click="handleSaveCustomApiUrl">
+                Save
+              </Button>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-muted-foreground">
+              <button type="button" class="hover:underline text-primary" @click="handleSwitchToLan">
+                Default to 192.168.1.38:8000
+              </button>
+              <button type="button" class="hover:underline flex items-center gap-1" :disabled="isCheckingServer" @click="checkServerHealth">
+                <RefreshCw class="size-3" :class="{ 'animate-spin': isCheckingServer }" />
+                Test Health
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Alert with 1-Click Fix -->
         <div
           v-if="errorMessage"
-          class="flex items-center gap-2 p-3 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 rounded-lg animate-in fade-in duration-200"
+          class="p-3 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 rounded-lg animate-in fade-in duration-200 space-y-2"
         >
-          <AlertCircle class="size-4 shrink-0" />
-          <span>{{ errorMessage }}</span>
+          <div class="flex items-center gap-2">
+            <AlertCircle class="size-4 shrink-0" />
+            <span class="break-words">{{ errorMessage }}</span>
+          </div>
+          <div v-if="errorMessage.includes('100.87.162.99')" class="pt-1 flex items-center gap-2">
+            <Button size="sm" variant="outline" class="h-6 text-[10px] px-2 bg-background" @click="handleSwitchToLan">
+              Switch to http://192.168.1.38:8000 (LAN)
+            </Button>
+          </div>
         </div>
 
         <!-- Login Form -->

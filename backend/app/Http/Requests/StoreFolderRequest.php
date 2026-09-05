@@ -23,7 +23,11 @@ class StoreFolderRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'parentId' => ['nullable', 'string', 'exists:folders,id'],
-            'ownerId' => ['required', 'string'],
+            'ownerId' => ['required', 'string', function ($attribute, $value, $fail) {
+                if ($value !== 'shared' && !\App\Models\User::where('id', $value)->exists()) {
+                    $fail('The selected employee workspace owner does not exist.');
+                }
+            }],
             'color' => ['nullable', 'string', 'max:50'],
         ];
     }

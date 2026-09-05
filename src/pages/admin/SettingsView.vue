@@ -71,6 +71,10 @@ const handleSave = () => {
 }
 
 onMounted(() => {
+  if (apiUrl.value && apiUrl.value.includes('100.87.162.99')) {
+    api.resetBaseUrl()
+    apiUrl.value = api.getApiBaseUrl()
+  }
   testConnection()
 })
 </script>

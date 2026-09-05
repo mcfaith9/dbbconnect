@@ -2,15 +2,6 @@ import { storage } from './storage'
 import { api } from './api'
 import type { Document, DocumentType, UserRole } from '@/types'
 
-function formatBytes(bytes: number, decimals = 1): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const dm = decimals < 0 ? 0 : decimals
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
-}
-
 function detectDocumentType(fileName: string, mimeType?: string): DocumentType {
   const ext = fileName.split('.').pop()?.toLowerCase() || ''
   if (ext === 'pdf' || mimeType === 'application/pdf') return 'pdf'
@@ -23,42 +14,86 @@ function detectDocumentType(fileName: string, mimeType?: string): DocumentType {
 
 export const DocumentService = {
   async getAllDocuments(): Promise<Document[]> {
-    // Attempt remote sync if Laravel API is available
     try {
-      const isOnline = await api.checkHealth()
-      if (isOnline) {
-        const res = await api.get<Document[]>('/documents')
-        if (res.success && Array.isArray(res.data)) {
-          for (const doc of res.data) {
-            await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
-          }
+      const res = await api.get<Document[]>('/documents')
+      if (res.success && Array.isArray(res.data)) {
+        for (const doc of res.data) {
+          await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
         }
+        return res.data
       }
     } catch (e) {
-      console.warn('API sync failed, continuing with local cache', e)
+      console.warn('API sync failed, continuing with local cache:', e)
     }
     return await storage.getAll<Document>(storage.STORES.DOCUMENTS)
   },
 
   async getDocumentsByOwner(ownerId: string): Promise<Document[]> {
-    const all = await this.getAllDocuments()
+    try {
+      const res = await api.get<Document[]>('/documents', { owner_id: ownerId })
+      if (res.success && Array.isArray(res.data)) {
+        for (const doc of res.data) {
+          await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+        }
+        return res.data
+      }
+    } catch (e) {
+      console.warn('API sync failed for owner documents:', e)
+    }
+    const all = await storage.getAll<Document>(storage.STORES.DOCUMENTS)
     return all.filter((d) => d.ownerId === ownerId)
   },
 
   async getDocumentsByFolder(folderId: string | null, ownerId: string): Promise<Document[]> {
+    try {
+      const params: Record<string, string> = { owner_id: ownerId }
+      if (folderId) {
+        params.folder_id = folderId
+      } else {
+        params.folder_id = 'root'
+      }
+      const res = await api.get<Document[]>('/documents', params)
+      if (res.success && Array.isArray(res.data)) {
+        for (const doc of res.data) {
+          await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+        }
+        return res.data
+      }
+    } catch (e) {
+      console.warn('API sync failed for folder documents:', e)
+    }
     const docs = await this.getDocumentsByOwner(ownerId)
     return docs.filter((d) => (folderId ? d.folderId === folderId : d.folderId === null))
   },
 
   async getAssignedDocumentsForEmployee(employeeId: string): Promise<Document[]> {
+    try {
+      const res = await api.get<Document[]>('/documents', { employee_id: employeeId })
+      if (res.success && Array.isArray(res.data)) {
+        for (const doc of res.data) {
+          await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
+        }
+        return res.data
+      }
+    } catch (e) {
+      console.warn('API sync failed for assigned documents:', e)
+    }
     const all = await this.getAllDocuments()
     return all.filter((d) => {
-      // Owned by employee OR explicitly assigned to employee OR company shared
       return d.ownerId === employeeId || d.assignedTo?.includes(employeeId) || d.isShared || d.ownerId === 'shared'
     })
   },
 
   async getDocumentById(id: string): Promise<Document | null> {
+    try {
+      const res = await api.get<Document>(`/documents/${id}`)
+      if (res.success && res.data) {
+        await storage.put<Document>(storage.STORES.DOCUMENTS, res.data)
+        return res.data
+      }
+    } catch (e) {
+      console.warn('API sync failed for single document:', e)
+    }
     return await storage.getById<Document>(storage.STORES.DOCUMENTS, id)
   },
 
@@ -83,109 +118,84 @@ export const DocumentService = {
     const fileName = params.name.trim()
     const docType = detectDocumentType(fileName, params.mimeType || params.file?.type)
     const size = params.size || params.file?.size || 0
-    
+
     // Auto-assign: if uploaded to an employee, automatically include that employee in assignedTo
     const assigned = new Set<string>(params.assignedTo || [])
     if (params.ownerId !== 'shared') {
       assigned.add(params.ownerId)
     }
 
-    const newDoc: Document = {
-      id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      name: fileName,
-      originalName: params.originalName || fileName,
-      mimeType: params.mimeType || params.file?.type || (docType === 'pdf' ? 'application/pdf' : 'application/octet-stream'),
-      type: docType,
-      size,
-      sizeFormatted: formatBytes(size),
-      folderId: params.folderId,
-      ownerId: params.ownerId,
-      uploadedBy: params.uploadedBy,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      version: 'v1.0',
-      isShared: params.ownerId === 'shared',
-      assignedTo: Array.from(assigned),
-      tags: params.tags || (docType === 'image' ? ['Site Photo'] : ['Field Document']),
-      offlineCached: true, // uploaded files are cached locally in IndexedDB
-      offlineCachedAt: new Date().toISOString(),
-      previewUrl: params.previewUrl,
-      thumbnailUrl: params.thumbnailUrl || (docType === 'image' ? params.dataUrl : undefined),
-      textContent: params.textContent,
-      docxHtml: params.docxHtml,
-      dataUrl: params.dataUrl,
-      pageCount: params.pageCount,
-    }
-
-    const savedDoc = await storage.put<Document>(storage.STORES.DOCUMENTS, newDoc)
-
-    // Sync to Laravel API if connected
-    try {
-      const isOnline = await api.checkHealth()
-      if (isOnline) {
-        if (params.file) {
-          const formData = new FormData()
-          formData.append('file', params.file)
-          formData.append('name', fileName)
-          formData.append('originalName', params.originalName || fileName)
-          formData.append('ownerId', params.ownerId)
-          if (params.folderId) formData.append('folderId', params.folderId)
-          if (params.previewUrl) formData.append('previewUrl', params.previewUrl)
-          if (params.thumbnailUrl) formData.append('thumbnailUrl', params.thumbnailUrl)
-          if (params.textContent) formData.append('textContent', params.textContent)
-          if (params.tags) {
-            params.tags.forEach((t, i) => formData.append(`tags[${i}]`, t))
-          }
-          if (params.assignedTo) {
-            params.assignedTo.forEach((uid, i) => formData.append(`assignedTo[${i}]`, uid))
-          }
-          api.post('/documents', formData).catch(() => {})
-        } else {
-          api.post('/documents', {
-            name: fileName,
-            originalName: params.originalName || fileName,
-            mimeType: newDoc.mimeType,
-            size: newDoc.size,
-            folderId: params.folderId,
-            ownerId: params.ownerId,
-            tags: newDoc.tags,
-            previewUrl: params.previewUrl,
-            thumbnailUrl: params.thumbnailUrl,
-            textContent: params.textContent,
-            assignedTo: Array.from(assigned),
-          }).catch(() => {})
-        }
+    let res: any
+    if (params.file) {
+      const formData = new FormData()
+      formData.append('file', params.file)
+      formData.append('name', fileName)
+      formData.append('originalName', params.originalName || fileName)
+      formData.append('ownerId', params.ownerId)
+      if (params.folderId) formData.append('folderId', params.folderId)
+      if (params.previewUrl) formData.append('previewUrl', params.previewUrl)
+      if (params.thumbnailUrl) formData.append('thumbnailUrl', params.thumbnailUrl)
+      if (params.textContent) formData.append('textContent', params.textContent)
+      if (params.dataUrl) formData.append('dataUrl', params.dataUrl)
+      if (params.docxHtml) formData.append('docxHtml', params.docxHtml)
+      if (params.pageCount) formData.append('pageCount', String(params.pageCount))
+      if (params.tags) {
+        params.tags.forEach((t, i) => formData.append(`tags[${i}]`, t))
       }
-    } catch {
-      // Keep local copy safely
+      Array.from(assigned).forEach((uid, i) => formData.append(`assignedTo[${i}]`, uid))
+      res = await api.post<Document>('/documents', formData)
+    } else {
+      res = await api.post<Document>('/documents', {
+        name: fileName,
+        originalName: params.originalName || fileName,
+        mimeType: params.mimeType || (docType === 'pdf' ? 'application/pdf' : 'application/octet-stream'),
+        size,
+        folderId: params.folderId,
+        ownerId: params.ownerId,
+        tags: params.tags || (docType === 'image' ? ['Site Photo'] : ['Field Document']),
+        previewUrl: params.previewUrl,
+        thumbnailUrl: params.thumbnailUrl,
+        textContent: params.textContent,
+        docxHtml: params.docxHtml,
+        dataUrl: params.dataUrl,
+        pageCount: params.pageCount,
+        assignedTo: Array.from(assigned),
+      })
     }
 
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to upload document to Laravel server.')
+    }
+
+    const savedDoc: Document = res.data
+    await storage.put<Document>(storage.STORES.DOCUMENTS, savedDoc)
     return savedDoc
   },
 
   async renameDocument(id: string, newName: string): Promise<Document | null> {
-    const doc = await this.getDocumentById(id)
-    if (!doc) return null
-    doc.name = newName.trim()
-    doc.updatedAt = new Date().toISOString()
-    const saved = await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
-    api.put(`/documents/${id}`, { name: doc.name }).catch(() => {})
-    return saved
+    const res = await api.put<Document>(`/documents/${id}`, { name: newName.trim() })
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to rename document on Laravel server.')
+    }
+    await storage.put<Document>(storage.STORES.DOCUMENTS, res.data)
+    return res.data
   },
 
   async moveDocument(id: string, targetFolderId: string | null): Promise<Document | null> {
-    const doc = await this.getDocumentById(id)
-    if (!doc) return null
-    doc.folderId = targetFolderId
-    doc.updatedAt = new Date().toISOString()
-    const saved = await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
-    api.put(`/documents/${id}`, { folderId: targetFolderId }).catch(() => {})
-    return saved
+    const res = await api.put<Document>(`/documents/${id}`, { folderId: targetFolderId })
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to move document on Laravel server.')
+    }
+    await storage.put<Document>(storage.STORES.DOCUMENTS, res.data)
+    return res.data
   },
 
   async deleteDocument(id: string): Promise<void> {
+    const res = await api.delete(`/documents/${id}`)
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to delete document on Laravel server.')
+    }
     await storage.delete(storage.STORES.DOCUMENTS, id)
-    api.delete(`/documents/${id}`).catch(() => {})
   },
 
   async toggleOfflineCache(id: string, shouldCache: boolean): Promise<Document | null> {

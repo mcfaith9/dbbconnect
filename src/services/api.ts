@@ -11,12 +11,13 @@
  * Authorization: Bearer <token>
  */
 
-const DEFAULT_API_URL = ''
+const DEFAULT_API_URL = 'http://192.168.1.38:8000'
 const TOKEN_STORAGE_KEY = 'dbb_connect_api_token'
 const CUSTOM_API_URL_STORAGE_KEY = 'dbb_connect_custom_api_url'
 
 export interface ApiResponse<T = any> {
   success: boolean
+  status?: number
   data?: T
   message?: string
   token?: string
@@ -31,13 +32,82 @@ class ApiClient {
   private lastHealthCheck: number = 0
 
   constructor() {
-    const savedCustomUrl = typeof window !== 'undefined' ? window.localStorage.getItem(CUSTOM_API_URL_STORAGE_KEY) : null
-    const envUrl = (import.meta.env.VITE_API_URL as string | undefined) || ''
-    this.baseUrl = this.normalizeUrl(savedCustomUrl || envUrl || DEFAULT_API_URL)
+    this.baseUrl = this.resolveInitialUrl()
+  }
+
+  private resolveInitialUrl(): string {
+    const currentHostname = typeof window !== 'undefined' ? window.location.hostname : ''
+
+    // 1. Automatic cleanup of stale Tailscale IP (100.87.162.99) stored from previous sessions
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = window.localStorage.getItem(CUSTOM_API_URL_STORAGE_KEY)
+        if (stored && (stored.includes('100.87.162.99') || (currentHostname && currentHostname.startsWith('192.168.') && !stored.includes(currentHostname)))) {
+          window.localStorage.removeItem(CUSTOM_API_URL_STORAGE_KEY)
+        }
+      } catch {}
+    }
+
+    const envUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
+    let savedCustomUrl = typeof window !== 'undefined' ? window.localStorage.getItem(CUSTOM_API_URL_STORAGE_KEY)?.trim() : null
+
+    // Discard any saved custom URL containing the stale Tailscale IP
+    if (savedCustomUrl && savedCustomUrl.includes('100.87.162.99')) {
+      savedCustomUrl = null
+    }
+
+    // Helper to adapt localhost / 127.0.0.1 or stale IPs to the active browser hostname
+    const adaptUrl = (url: string): string => {
+      if (!url) return ''
+      try {
+        const parsed = new URL(url)
+        if (
+          currentHostname &&
+          currentHostname !== 'localhost' &&
+          currentHostname !== '127.0.0.1'
+        ) {
+          if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '100.87.162.99') {
+            parsed.hostname = currentHostname
+            return parsed.toString()
+          }
+        }
+      } catch {}
+      return url
+    }
+
+    // Priority 1: When browsing from phone/device on WiFi LAN (e.g. http://192.168.1.38:5173),
+    // always connect directly to the same host running Laravel: http://192.168.1.38:8000
+    if (currentHostname && currentHostname.startsWith('192.168.')) {
+      const protocol = window.location.protocol || 'http:'
+      return `${protocol}//${currentHostname}:8000`
+    }
+
+    // Priority 2: Explicit Vite environment variable (.env / .env.development: VITE_API_URL)
+    if (envUrl) {
+      return this.normalizeUrl(adaptUrl(envUrl))
+    }
+
+    // Priority 3: Explicit valid runtime override in localStorage (from Settings page)
+    if (savedCustomUrl) {
+      return this.normalizeUrl(adaptUrl(savedCustomUrl))
+    }
+
+    // Priority 4: Dynamic hostname fallback if accessed via any other IP
+    if (currentHostname && currentHostname !== 'localhost' && currentHostname !== '127.0.0.1') {
+      const protocol = window.location.protocol || 'http:'
+      return `${protocol}//${currentHostname}:8000`
+    }
+
+    // Priority 5: Default LAN IP
+    return DEFAULT_API_URL
   }
 
   private normalizeUrl(url: string): string {
     let clean = (url || '').trim().replace(/\/+$/, '')
+    if (!clean) return ''
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `http://${clean}`
+    }
     if (clean.endsWith('/api')) {
       clean = clean.slice(0, -4).replace(/\/+$/, '')
     }
@@ -68,8 +138,7 @@ class ApiClient {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(CUSTOM_API_URL_STORAGE_KEY)
     }
-    const envUrl = (import.meta.env.VITE_API_URL as string | undefined) || ''
-    this.baseUrl = this.normalizeUrl(envUrl)
+    this.baseUrl = this.resolveInitialUrl()
     this.isServerOnline = null
   }
 
@@ -97,6 +166,12 @@ class ApiClient {
       return false
     }
 
+    // Guard against mixed content: browser blocks HTTP calls from HTTPS origins
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && this.baseUrl.startsWith('http://')) {
+      this.isServerOnline = false
+      return false
+    }
+
     const now = Date.now()
     if (!force && this.isServerOnline !== null && now - this.lastHealthCheck < 15000) {
       return this.isServerOnline
@@ -104,7 +179,7 @@ class ApiClient {
 
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 2000) // 2s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout for mobile networks
 
       const res = await fetch(`${this.baseUrl}/api/health`, {
         method: 'GET',
@@ -131,15 +206,28 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     if (!this.baseUrl) {
+      console.warn('[API Client] Backend API baseUrl is not configured.')
       return {
         success: false,
+        status: 0,
         isOffline: true,
-        error: 'Backend API offline or not configured. Using local storage.',
+        error: 'Backend API URL is not configured.',
       }
     }
 
     const token = this.getToken()
-    const url = `${this.baseUrl}/api/${endpoint.replace(/^\//, '')}`
+    const cleanEndpoint = endpoint.replace(/^\/+/, '')
+    const url = `${this.baseUrl}/api/${cleanEndpoint}`
+
+    // Guard against mixed content: browser blocks insecure HTTP requests from HTTPS contexts
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+      return {
+        success: false,
+        status: 0,
+        isOffline: true,
+        error: `Insecure HTTP API endpoint (${url}) cannot be accessed from a secure HTTPS environment. Use HTTP for local testing or configure SSL.`,
+      }
+    }
 
     const headers: Record<string, string> = {
       Accept: 'application/json',
@@ -155,6 +243,8 @@ class ApiClient {
     if (options.body && !(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json'
     }
+
+    const method = (options.method || 'GET').toUpperCase()
 
     try {
       const controller = new AbortController()
@@ -176,6 +266,7 @@ class ApiClient {
       }
 
       if (!response.ok) {
+        console.warn(`[API Response Error] ${method} ${url} returned HTTP ${response.status}`, json)
         let errMsg = json.message || `Server returned ${response.status}: ${response.statusText}`
         if (json.errors && typeof json.errors === 'object') {
           const firstErrorList = Object.values(json.errors)[0] as any
@@ -185,6 +276,8 @@ class ApiClient {
         }
         return {
           success: false,
+          status: response.status,
+          isOffline: false,
           error: errMsg,
           data: json.data,
         }
@@ -192,17 +285,23 @@ class ApiClient {
 
       return {
         success: true,
+        status: response.status,
+        isOffline: false,
         data: json.data !== undefined ? json.data : json,
         message: json.message,
         token: json.token,
         user: json.user,
       }
     } catch (err: any) {
-      // Offline / Unreachable backend
+      console.warn(`[API Network Status] ${method} ${url} unreachable or offline:`, err?.message || err)
+      const isTimeout = err.name === 'AbortError'
       return {
         success: false,
+        status: 0,
         isOffline: true,
-        error: err.name === 'AbortError' ? 'API request timed out.' : 'Unable to connect to Laravel backend.',
+        error: isTimeout
+          ? `API request to ${url} timed out (12s). Verify Laravel server is running.`
+          : `Unable to connect to Laravel backend at ${this.baseUrl}. (${err.message || 'Network error'})`,
       }
     }
   }

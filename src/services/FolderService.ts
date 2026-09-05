@@ -4,34 +4,68 @@ import type { Folder, BreadcrumbCrumb } from '@/types'
 
 export const FolderService = {
   async getAllFolders(): Promise<Folder[]> {
-    // Attempt remote sync if API is available
     try {
-      const isOnline = await api.checkHealth()
-      if (isOnline) {
-        const res = await api.get<Folder[]>('/folders')
-        if (res.success && Array.isArray(res.data)) {
-          for (const f of res.data) {
-            await storage.put<Folder>(storage.STORES.FOLDERS, f)
-          }
+      const res = await api.get<Folder[]>('/folders')
+      if (res.success && Array.isArray(res.data)) {
+        for (const f of res.data) {
+          await storage.put<Folder>(storage.STORES.FOLDERS, f)
         }
+        return res.data
       }
-    } catch {
-      // Local fallback
+    } catch (e) {
+      console.warn('Failed to fetch folders from API, checking local cache:', e)
     }
     return await storage.getAll<Folder>(storage.STORES.FOLDERS)
   },
 
   async getFoldersByOwner(ownerId: string): Promise<Folder[]> {
-    const all = await this.getAllFolders()
+    try {
+      const res = await api.get<Folder[]>('/folders', { owner_id: ownerId })
+      if (res.success && Array.isArray(res.data)) {
+        for (const f of res.data) {
+          await storage.put<Folder>(storage.STORES.FOLDERS, f)
+        }
+        return res.data
+      }
+    } catch (e) {
+      console.warn('Failed to fetch folders by owner from API:', e)
+    }
+    const all = await storage.getAll<Folder>(storage.STORES.FOLDERS)
     return all.filter((f) => f.ownerId === ownerId)
   },
 
   async getChildFolders(parentId: string | null, ownerId: string): Promise<Folder[]> {
+    try {
+      const params: Record<string, string> = { owner_id: ownerId }
+      if (parentId) {
+        params.parent_id = parentId
+      } else {
+        params.parent_id = 'root'
+      }
+      const res = await api.get<Folder[]>('/folders', params)
+      if (res.success && Array.isArray(res.data)) {
+        for (const f of res.data) {
+          await storage.put<Folder>(storage.STORES.FOLDERS, f)
+        }
+        return res.data
+      }
+    } catch (e) {
+      console.warn('Failed to fetch child folders from API:', e)
+    }
     const folders = await this.getFoldersByOwner(ownerId)
     return folders.filter((f) => (parentId ? f.parentId === parentId : f.parentId === null))
   },
 
   async getFolderById(id: string): Promise<Folder | null> {
+    try {
+      const res = await api.get<Folder>(`/folders/${id}`)
+      if (res.success && res.data) {
+        await storage.put<Folder>(storage.STORES.FOLDERS, res.data)
+        return res.data
+      }
+    } catch (e) {
+      console.warn('Failed to fetch folder by id from API:', e)
+    }
     return await storage.getById<Folder>(storage.STORES.FOLDERS, id)
   },
 
@@ -41,69 +75,46 @@ export const FolderService = {
     ownerId: string
     color?: string
   }): Promise<Folder> {
-    const newFolder: Folder = {
-      id: `folder-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    const res = await api.post<Folder>('/folders', {
       name: params.name.trim(),
       parentId: params.parentId,
       ownerId: params.ownerId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
       color: params.color || '#2563eb',
+    })
+
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to create folder on Laravel server.')
     }
 
-    const saved = await storage.put<Folder>(storage.STORES.FOLDERS, newFolder)
-    api.post('/folders', {
-      name: newFolder.name,
-      parentId: newFolder.parentId,
-      ownerId: newFolder.ownerId,
-      color: newFolder.color,
-    }).catch(() => {})
-    return saved
+    const createdFolder: Folder = res.data
+    await storage.put<Folder>(storage.STORES.FOLDERS, createdFolder)
+    return createdFolder
   },
 
   async renameFolder(id: string, newName: string): Promise<Folder | null> {
-    const folder = await this.getFolderById(id)
-    if (!folder) return null
-    folder.name = newName.trim()
-    folder.updatedAt = new Date().toISOString()
-    const saved = await storage.put<Folder>(storage.STORES.FOLDERS, folder)
-    api.put(`/folders/${id}`, { name: folder.name }).catch(() => {})
-    return saved
+    const res = await api.put<Folder>(`/folders/${id}`, { name: newName.trim() })
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to rename folder on Laravel server.')
+    }
+    await storage.put<Folder>(storage.STORES.FOLDERS, res.data)
+    return res.data
   },
 
   async moveFolder(id: string, targetParentId: string | null): Promise<Folder | null> {
-    const folder = await this.getFolderById(id)
-    if (!folder) return null
-    // Prevent moving folder inside itself
-    if (id === targetParentId) return null
-    folder.parentId = targetParentId
-    folder.updatedAt = new Date().toISOString()
-    const saved = await storage.put<Folder>(storage.STORES.FOLDERS, folder)
-    api.put(`/folders/${id}`, { parentId: targetParentId }).catch(() => {})
-    return saved
+    const res = await api.put<Folder>(`/folders/${id}`, { parentId: targetParentId })
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to move folder on Laravel server.')
+    }
+    await storage.put<Folder>(storage.STORES.FOLDERS, res.data)
+    return res.data
   },
 
   async deleteFolder(id: string): Promise<void> {
-    const allFolders = await this.getAllFolders()
-    const folderIdsToDelete = new Set<string>([id])
-
-    // Find all descendant folders recursively
-    let foundNew = true
-    while (foundNew) {
-      foundNew = false
-      for (const f of allFolders) {
-        if (f.parentId && folderIdsToDelete.has(f.parentId) && !folderIdsToDelete.has(f.id)) {
-          folderIdsToDelete.add(f.id)
-          foundNew = true
-        }
-      }
+    const res = await api.delete(`/folders/${id}`)
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to delete folder on Laravel server.')
     }
-
-    // Delete folders
-    for (const folderId of folderIdsToDelete) {
-      await storage.delete(storage.STORES.FOLDERS, folderId)
-    }
-    api.delete(`/folders/${id}`).catch(() => {})
+    await storage.delete(storage.STORES.FOLDERS, id)
   },
 
   async getFolderPath(folderId: string | null, ownerId: string, basePath = '/field-manager'): Promise<BreadcrumbCrumb[]> {

@@ -15,10 +15,14 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_filter(explode(',', (string) env(
-        'FRONTEND_URL',
-        'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000,http://192.168.1.38:5173,http://100.87.162.99:5173'
-    ))),
+    'allowed_origins' => array_values(array_unique(array_filter(array_merge([
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000',
+        'http://192.168.1.38:5173',
+        'http://100.87.162.99:5173',
+    ], explode(',', (string) env('FRONTEND_URL', '')))))),
 
     // In production, disable regex patterns and strictly enforce allowed_origins
     'allowed_origins_patterns' => env('APP_ENV') === 'production' ? [] : [

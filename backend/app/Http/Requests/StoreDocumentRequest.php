@@ -18,7 +18,7 @@ class StoreDocumentRequest extends FormRequest
             'originalName' => ['nullable', 'string', 'max:255'],
             'file' => ['nullable', 'file', 'max:102400'], // 100MB maximum file size
             'mimeType' => ['nullable', 'string', 'max:255'],
-            'size' => ['nullable', 'integer'],
+            'size' => ['nullable', 'numeric'],
             'folderId' => ['nullable', 'string'],
             'ownerId' => ['required', 'string'],
             'assignedTo' => ['nullable', 'array'],

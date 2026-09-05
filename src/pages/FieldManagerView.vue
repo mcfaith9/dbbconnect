@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Users,
+  UsersRound,
   FolderPlus,
   Upload,
   Folder,
@@ -267,6 +267,7 @@ const handleUploadFiles = async (files: any[]) => {
       const uploaded = await DocumentService.uploadDocument({
         name: file.name,
         originalName: file.originalName || file.name,
+        file: file.rawFile || file.file,
         mimeType: file.mimeType,
         size: file.size,
         folderId: currentFolderId.value,
@@ -276,11 +277,8 @@ const handleUploadFiles = async (files: any[]) => {
           name: currentUser.value.name,
           role: currentUser.value.role,
         },
-        previewUrl: file.previewUrl,
-        thumbnailUrl: file.thumbnailUrl,
         textContent: file.textContent,
         docxHtml: file.docxHtml,
-        dataUrl: file.dataUrl,
         pageCount: file.pageCount,
         assignedTo: [selectedEmployee.value.id],
       })
@@ -441,7 +439,7 @@ const handleDownload = (doc: DocumentType) => {
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Users class="size-6 text-primary" />
+            <UsersRound class="size-6 text-primary" />
             Field Manager Directory
           </h1>
           <p class="text-xs sm:text-sm text-muted-foreground mt-0.5">
@@ -466,7 +464,7 @@ const handleDownload = (doc: DocumentType) => {
         class="border-2 border-dashed rounded-xl p-12 text-center space-y-3 bg-muted/10"
       >
         <div class="size-12 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
-          <Users class="size-6" />
+          <UsersRound class="size-6" />
         </div>
         <div>
           <h4 class="font-semibold text-sm">No field personnel found</h4>
@@ -574,7 +572,7 @@ const handleDownload = (doc: DocumentType) => {
           class="gap-1.5 text-xs self-start md:self-auto"
           @click="backToEmployeeList"
         >
-          <Users class="size-3.5" />
+          <UsersRound class="size-3.5" />
           <span>Switch Employee</span>
         </Button>
       </div>

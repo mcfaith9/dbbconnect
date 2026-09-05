@@ -12,15 +12,23 @@ function detectDocumentType(fileName: string, mimeType?: string): DocumentType {
   return 'other'
 }
 
+function adaptDocument(doc: Document): Document {
+  if (doc.previewUrl) doc.previewUrl = api.adaptUrl(doc.previewUrl)
+  if (doc.thumbnailUrl) doc.thumbnailUrl = api.adaptUrl(doc.thumbnailUrl)
+  if (doc.downloadUrl) doc.downloadUrl = api.adaptUrl(doc.downloadUrl)
+  return doc
+}
+
 export const DocumentService = {
   async getAllDocuments(): Promise<Document[]> {
     try {
       const res = await api.get<Document[]>('/documents')
       if (res.success && Array.isArray(res.data)) {
-        for (const doc of res.data) {
+        const adapted = res.data.map(adaptDocument)
+        for (const doc of adapted) {
           await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
         }
-        return res.data
+        return adapted
       }
     } catch (e) {
       console.warn('API sync failed, continuing with local cache:', e)
@@ -32,10 +40,11 @@ export const DocumentService = {
     try {
       const res = await api.get<Document[]>('/documents', { owner_id: ownerId })
       if (res.success && Array.isArray(res.data)) {
-        for (const doc of res.data) {
+        const adapted = res.data.map(adaptDocument)
+        for (const doc of adapted) {
           await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
         }
-        return res.data
+        return adapted
       }
     } catch (e) {
       console.warn('API sync failed for owner documents:', e)
@@ -54,10 +63,11 @@ export const DocumentService = {
       }
       const res = await api.get<Document[]>('/documents', params)
       if (res.success && Array.isArray(res.data)) {
-        for (const doc of res.data) {
+        const adapted = res.data.map(adaptDocument)
+        for (const doc of adapted) {
           await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
         }
-        return res.data
+        return adapted
       }
     } catch (e) {
       console.warn('API sync failed for folder documents:', e)
@@ -70,10 +80,11 @@ export const DocumentService = {
     try {
       const res = await api.get<Document[]>('/documents', { employee_id: employeeId })
       if (res.success && Array.isArray(res.data)) {
-        for (const doc of res.data) {
+        const adapted = res.data.map(adaptDocument)
+        for (const doc of adapted) {
           await storage.put<Document>(storage.STORES.DOCUMENTS, doc)
         }
-        return res.data
+        return adapted
       }
     } catch (e) {
       console.warn('API sync failed for assigned documents:', e)
@@ -88,8 +99,9 @@ export const DocumentService = {
     try {
       const res = await api.get<Document>(`/documents/${id}`)
       if (res.success && res.data) {
-        await storage.put<Document>(storage.STORES.DOCUMENTS, res.data)
-        return res.data
+        const adapted = adaptDocument(res.data)
+        await storage.put<Document>(storage.STORES.DOCUMENTS, adapted)
+        return adapted
       }
     } catch (e) {
       console.warn('API sync failed for single document:', e)
@@ -128,21 +140,21 @@ export const DocumentService = {
     let res: any
     if (params.file) {
       const formData = new FormData()
-      formData.append('file', params.file)
+      formData.append('file', params.file, params.originalName || params.file.name || fileName)
       formData.append('name', fileName)
-      formData.append('originalName', params.originalName || fileName)
+      formData.append('originalName', params.originalName || params.file.name || fileName)
       formData.append('ownerId', params.ownerId)
       if (params.folderId) formData.append('folderId', params.folderId)
-      if (params.previewUrl) formData.append('previewUrl', params.previewUrl)
-      if (params.thumbnailUrl) formData.append('thumbnailUrl', params.thumbnailUrl)
-      if (params.textContent) formData.append('textContent', params.textContent)
-      if (params.dataUrl) formData.append('dataUrl', params.dataUrl)
-      if (params.docxHtml) formData.append('docxHtml', params.docxHtml)
+      if (params.textContent) formData.append('textContent', params.textContent.slice(0, 20000))
+      if (params.docxHtml) formData.append('docxHtml', params.docxHtml.slice(0, 50000))
       if (params.pageCount) formData.append('pageCount', String(params.pageCount))
       if (params.tags) {
         params.tags.forEach((t, i) => formData.append(`tags[${i}]`, t))
       }
       Array.from(assigned).forEach((uid, i) => formData.append(`assignedTo[${i}]`, uid))
+
+      // NOTICE: Do not append huge base64 previewUrl or dataUrl to FormData!
+      // The Laravel backend receives the file, stores it on disk, and provides clean streaming URLs.
       res = await api.post<Document>('/documents', formData)
     } else {
       res = await api.post<Document>('/documents', {
@@ -153,11 +165,8 @@ export const DocumentService = {
         folderId: params.folderId,
         ownerId: params.ownerId,
         tags: params.tags || (docType === 'image' ? ['Site Photo'] : ['Field Document']),
-        previewUrl: params.previewUrl,
-        thumbnailUrl: params.thumbnailUrl,
-        textContent: params.textContent,
-        docxHtml: params.docxHtml,
-        dataUrl: params.dataUrl,
+        textContent: params.textContent?.slice(0, 20000),
+        docxHtml: params.docxHtml?.slice(0, 50000),
         pageCount: params.pageCount,
         assignedTo: Array.from(assigned),
       })
@@ -167,7 +176,7 @@ export const DocumentService = {
       throw new Error(res.error || 'Failed to upload document to Laravel server.')
     }
 
-    const savedDoc: Document = res.data
+    const savedDoc: Document = adaptDocument(res.data)
     await storage.put<Document>(storage.STORES.DOCUMENTS, savedDoc)
     return savedDoc
   },

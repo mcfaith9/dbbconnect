@@ -56,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/documents/{id}', [DocumentController::class, 'destroy']);
     Route::post('/documents/{id}/assign', [DocumentController::class, 'assign']);
     Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
+    Route::get('/documents/{id}/file', [DocumentController::class, 'file']);
 
     // Comments
     Route::get('/comments', [CommentController::class, 'index']);
@@ -66,6 +67,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/activities', [ActivityController::class, 'index']);
     Route::post('/activities', [ActivityController::class, 'store']);
 });
+
+// Direct file streaming and download (accessible for <img> tags and browser downloads)
+Route::get('/documents/{id}/file', [DocumentController::class, 'file']);
+Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
 
 // Explicit CORS Preflight OPTIONS handler for all API endpoints
 Route::options('/{any}', function () {

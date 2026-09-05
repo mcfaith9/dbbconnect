@@ -67,9 +67,6 @@ const handleLogout = () => {
       <SidebarTrigger class="-ml-1" />
       <div class="flex items-center gap-2">
         <span class="font-bold text-sm sm:text-base tracking-tight text-foreground flex items-center gap-1.5">
-          <span class="size-6 rounded bg-primary text-primary-foreground font-black text-[10px] flex items-center justify-center">
-            DBB
-          </span>
           <span>DBB Connect</span>
         </span>
         <Badge

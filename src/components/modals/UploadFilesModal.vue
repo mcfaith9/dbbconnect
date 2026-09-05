@@ -184,8 +184,8 @@ const handleSubmit = () => {
               <div class="flex items-center gap-3 truncate pr-2 min-w-0">
                 <!-- Thumbnail / Icon -->
                 <img
-                  v-if="file.type === 'image' && file.dataUrl"
-                  :src="file.dataUrl"
+                  v-if="file.type === 'image' && (file.previewUrl || file.dataUrl)"
+                  :src="file.previewUrl || file.dataUrl"
                   :alt="file.name"
                   class="size-8 rounded object-cover border shrink-0 bg-background"
                 />

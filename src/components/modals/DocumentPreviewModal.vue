@@ -121,9 +121,9 @@ const handleDownload = () => {
   if (!props.document) return
   const doc = props.document
 
-  if (doc.dataUrl) {
+  if (doc.downloadUrl) {
     const a = window.document.createElement('a')
-    a.href = doc.dataUrl
+    a.href = doc.downloadUrl
     a.download = doc.originalName || doc.name
     window.document.body.appendChild(a)
     a.click()
@@ -134,6 +134,16 @@ const handleDownload = () => {
   if (doc.previewUrl) {
     const a = window.document.createElement('a')
     a.href = doc.previewUrl
+    a.download = doc.originalName || doc.name
+    window.document.body.appendChild(a)
+    a.click()
+    window.document.body.removeChild(a)
+    return
+  }
+
+  if (doc.dataUrl) {
+    const a = window.document.createElement('a')
+    a.href = doc.dataUrl
     a.download = doc.originalName || doc.name
     window.document.body.appendChild(a)
     a.click()
@@ -292,7 +302,7 @@ const handleDownload = () => {
           <!-- Image Viewer -->
           <ImageViewer
             v-else-if="document.type === 'image'"
-            :image-url="document.dataUrl || document.previewUrl || document.thumbnailUrl"
+            :image-url="document.previewUrl || document.downloadUrl || document.dataUrl || document.thumbnailUrl"
             :alt-text="document.name"
           />
 

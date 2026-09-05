@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  Users,
+  UsersRound,
   FolderTree,
   FileText,
   Clock,
@@ -106,7 +106,7 @@ const navigateToEmployee = (employeeId: string) => {
           class="gap-1.5 shadow-xs"
           @click="router.push('/field-manager')"
         >
-          <Users class="size-4" />
+          <UsersRound class="size-4" />
           Field Manager
         </Button>
         <Button
@@ -137,7 +137,7 @@ const navigateToEmployee = (employeeId: string) => {
             <CardTitle class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Field Employees
             </CardTitle>
-            <Users class="size-4 text-primary" />
+            <UsersRound class="size-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div class="text-2xl font-bold">{{ totalEmployees }}</div>
@@ -192,7 +192,7 @@ const navigateToEmployee = (employeeId: string) => {
           <CardHeader class="flex flex-row items-center justify-between">
             <div>
               <CardTitle class="text-base font-bold flex items-center gap-2">
-                <Users class="size-4 text-primary" />
+                <UsersRound class="size-4 text-primary" />
                 Field Manager Workspaces
               </CardTitle>
               <CardDescription>
@@ -261,7 +261,7 @@ const navigateToEmployee = (employeeId: string) => {
             >
               <div class="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
                 <Upload v-if="act.type === 'upload'" class="size-3" />
-                <Users v-else-if="act.type === 'assign'" class="size-3" />
+                <UsersRound v-else-if="act.type === 'assign'" class="size-3" />
                 <MessageSquare v-else-if="act.type === 'comment'" class="size-3" />
                 <HardDriveDownload v-else class="size-3" />
               </div>

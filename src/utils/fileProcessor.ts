@@ -8,6 +8,8 @@ export interface ProcessedFileInfo {
   sizeFormatted: string
   mimeType: string
   type: DocumentType
+  file: File
+  rawFile: File
   dataUrl?: string
   textContent?: string
   docxHtml?: string
@@ -77,18 +79,36 @@ export async function processUploadedFile(file: File): Promise<ProcessedFileInfo
   let previewUrl: string | undefined = undefined
   let thumbnailUrl: string | undefined = undefined
 
-  try {
-    dataUrl = await readFileAsDataURL(file)
-  } catch (err) {
-    console.warn('Failed to read file as DataURL', err)
-  }
-
   // Handle specific document formats
   if (docType === 'image') {
-    previewUrl = dataUrl
-    thumbnailUrl = dataUrl
+    // Generate an instant, zero-memory-bloat blob URL for local modal display
+    try {
+      previewUrl = URL.createObjectURL(file)
+      thumbnailUrl = previewUrl
+    } catch {
+      // fallback
+    }
+    // Only read small data URLs (< 40KB) for lightweight fallback
+    if (size < 40000) {
+      try {
+        dataUrl = await readFileAsDataURL(file)
+      } catch (err) {
+        console.warn('Failed to read file as DataURL', err)
+      }
+    }
   } else if (docType === 'pdf') {
-    previewUrl = dataUrl
+    try {
+      previewUrl = URL.createObjectURL(file)
+    } catch {
+      // fallback
+    }
+    if (size < 100000) {
+      try {
+        dataUrl = await readFileAsDataURL(file)
+      } catch {
+        // ignore
+      }
+    }
     // Attempt to inspect PDF page count via pdfjs-dist if available
     try {
       const pdfjs = await import('pdfjs-dist')
@@ -161,6 +181,8 @@ export async function processUploadedFile(file: File): Promise<ProcessedFileInfo
     sizeFormatted,
     mimeType,
     type: docType,
+    file,
+    rawFile: file,
     dataUrl,
     textContent,
     docxHtml,

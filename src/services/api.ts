@@ -142,6 +142,27 @@ class ApiClient {
     this.isServerOnline = null
   }
 
+  public adaptUrl(url?: string): string | undefined {
+    if (!url) return undefined
+    if (url.startsWith('data:') || url.startsWith('blob:')) return url
+    const currentHostname = typeof window !== 'undefined' ? window.location.hostname : ''
+    try {
+      if (url.startsWith('/')) {
+        return `${this.baseUrl}${url}`
+      }
+      const parsed = new URL(url)
+      if (currentHostname && currentHostname !== 'localhost' && currentHostname !== '127.0.0.1') {
+        if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '100.87.162.99' || parsed.hostname !== currentHostname) {
+          parsed.hostname = currentHostname
+          return parsed.toString().replace(/\/+$/, '')
+        }
+      }
+      return parsed.toString().replace(/\/+$/, '')
+    } catch {
+      return url
+    }
+  }
+
   public getToken(): string | null {
     if (typeof window === 'undefined') return null
     return window.localStorage.getItem(TOKEN_STORAGE_KEY)
@@ -247,8 +268,10 @@ class ApiClient {
     const method = (options.method || 'GET').toUpperCase()
 
     try {
+      const isUpload = options.body instanceof FormData
+      const timeoutMs = isUpload ? 120000 : 15000
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 12000)
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
       const response = await fetch(url, {
         ...options,

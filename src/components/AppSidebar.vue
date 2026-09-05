@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   LayoutDashboard,
-  Users,
+  UsersRound,
   FolderTree,
   MessageSquare,
   History,
@@ -47,7 +47,7 @@ const adminNavItems = computed<NavItem[]>(() => [
   {
     title: 'Field Manager',
     url: '/field-manager',
-    icon: Users,
+    icon: UsersRound,
   },
   {
     title: 'Shared Documents',
@@ -150,7 +150,7 @@ const navigateTo = (url: string) => {
                   :class="[
                     'size-4 shrink-0',
                     isCurrentRoute(item.url)
-                      ? 'text-primary-foreground'
+                      ? 'text-black dark:text-white'
                       : 'text-muted-foreground',
                   ]"
                 />

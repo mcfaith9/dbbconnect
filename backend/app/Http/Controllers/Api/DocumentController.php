@@ -7,6 +7,7 @@ use App\Http\Requests\StoreDocumentRequest;
 use App\Http\Resources\DocumentResource;
 use App\Models\Document;
 use App\Models\DocumentAssignment;
+use App\Models\Folder;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,8 +103,17 @@ class DocumentController extends Controller
     public function store(StoreDocumentRequest $request): JsonResponse
     {
         $id = 'doc-' . time() . '-' . Str::random(5);
-        $name = trim($request->input('name'));
-        $originalName = $request->input('originalName', $name);
+        $name = trim($request->input('name', 'Untitled Document'));
+        if (mb_strlen($name) > 250) {
+            $ext = pathinfo($name, PATHINFO_EXTENSION);
+            $name = mb_substr(pathinfo($name, PATHINFO_FILENAME), 0, 240) . ($ext ? '.' . $ext : '');
+        }
+
+        $originalName = trim($request->input('originalName', $name));
+        if (mb_strlen($originalName) > 250) {
+            $ext = pathinfo($originalName, PATHINFO_EXTENSION);
+            $originalName = mb_substr(pathinfo($originalName, PATHINFO_FILENAME), 0, 240) . ($ext ? '.' . $ext : '');
+        }
 
         $size = 0;
         $mimeType = $request->input('mimeType', 'application/octet-stream');
@@ -114,7 +124,14 @@ class DocumentController extends Controller
             $uploadedFile = $request->file('file');
             $size = $uploadedFile->getSize();
             $mimeType = $uploadedFile->getMimeType() ?: $mimeType;
-            $originalName = $uploadedFile->getClientOriginalName() ?: $originalName;
+            $clientOriginal = $uploadedFile->getClientOriginalName();
+            if ($clientOriginal) {
+                $originalName = mb_substr($clientOriginal, 0, 250);
+                if ($name === 'Untitled Document' || empty($name)) {
+                    $name = $originalName;
+                }
+            }
+            // Store safely on public disk
             $filePath = $uploadedFile->store('documents', 'public');
         } else {
             $size = (int) $request->input('size', 0);
@@ -132,6 +149,24 @@ class DocumentController extends Controller
         $uploaderName = $user ? $user->name : ($request->input('uploadedBy.name') ?? 'System Admin');
         $uploaderRole = $user ? $user->role : ($request->input('uploadedBy.role') ?? 'admin');
 
+        // Determine preview and thumbnail URLs safely (NEVER insert large Base64 into MySQL TEXT columns!)
+        if ($filePath) {
+            $previewUrl = url('/api/documents/' . $id . '/file');
+            $thumbnailUrl = url('/api/documents/' . $id . '/file');
+        } else {
+            $rawPreview = $request->input('previewUrl');
+            $rawThumb = $request->input('thumbnailUrl');
+            // Ensure strings are safe for MySQL TEXT column (max 65,535 bytes) and reject giant data URLs
+            $previewUrl = ($rawPreview && strlen($rawPreview) < 2048 && !str_starts_with($rawPreview, 'data:')) ? $rawPreview : null;
+            $thumbnailUrl = ($rawThumb && strlen($rawThumb) < 2048 && !str_starts_with($rawThumb, 'data:')) ? $rawThumb : null;
+        }
+
+        // Validate folder existence if provided
+        $folderId = $request->input('folderId');
+        if ($folderId && !Folder::where('id', $folderId)->exists()) {
+            $folderId = null;
+        }
+
         $doc = Document::create([
             'id' => $id,
             'name' => $name,
@@ -140,7 +175,7 @@ class DocumentController extends Controller
             'type' => $type,
             'size' => $size,
             'size_formatted' => $sizeFormatted,
-            'folder_id' => $request->input('folderId'),
+            'folder_id' => $folderId,
             'owner_id' => $ownerId,
             'uploaded_by_id' => $uploaderId,
             'uploaded_by_name' => $uploaderName,
@@ -150,12 +185,12 @@ class DocumentController extends Controller
             'tags' => $request->input('tags', $type === 'image' ? ['Site Photo'] : ['Field Document']),
             'offline_cached' => true,
             'offline_cached_at' => now(),
-            'preview_url' => $request->input('previewUrl'),
-            'thumbnail_url' => $request->input('thumbnailUrl'),
+            'preview_url' => $previewUrl,
+            'thumbnail_url' => $thumbnailUrl,
             'file_path' => $filePath,
             'text_content' => $request->input('textContent'),
             'docx_html' => $request->input('docxHtml'),
-            'data_url' => $request->input('dataUrl'),
+            'data_url' => null, // Do not store giant base64 strings in database; file is stored in filesystem
             'page_count' => $request->input('pageCount'),
         ]);
 
@@ -361,6 +396,30 @@ class DocumentController extends Controller
     }
 
     /**
+     * View/stream document file (for images, PDFs, etc.).
+     */
+    public function file(string $id)
+    {
+        $doc = Document::find($id);
+
+        if (!$doc || !$doc->file_path || !Storage::disk('public')->exists($doc->file_path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File not found on server.',
+            ], 404);
+        }
+
+        $mimeType = $doc->mime_type ?: 'application/octet-stream';
+        $filename = $doc->original_name ?: $doc->name;
+
+        return Storage::disk('public')->response($doc->file_path, $filename, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . addslashes($filename) . '"',
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    /**
      * Download document file.
      */
     public function download(string $id)
@@ -374,6 +433,8 @@ class DocumentController extends Controller
             ], 404);
         }
 
-        return Storage::disk('public')->download($doc->file_path, $doc->name);
+        $filename = $doc->original_name ?: $doc->name;
+
+        return Storage::disk('public')->download($doc->file_path, $filename);
     }
 }

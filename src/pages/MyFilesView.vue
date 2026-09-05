@@ -128,6 +128,7 @@ const handleUploadFiles = async (files: any[]) => {
       const uploaded = await DocumentService.uploadDocument({
         name: file.name,
         originalName: file.originalName || file.name,
+        file: file.rawFile || file.file,
         mimeType: file.mimeType,
         size: file.size,
         folderId: currentFolderId.value,
@@ -137,11 +138,8 @@ const handleUploadFiles = async (files: any[]) => {
           name: currentUser.value.name,
           role: currentUser.value.role,
         },
-        previewUrl: file.previewUrl,
-        thumbnailUrl: file.thumbnailUrl,
         textContent: file.textContent,
         docxHtml: file.docxHtml,
-        dataUrl: file.dataUrl,
         pageCount: file.pageCount,
         assignedTo: [currentUser.value.id],
       })

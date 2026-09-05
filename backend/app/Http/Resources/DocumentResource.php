@@ -24,6 +24,14 @@ class DocumentResource extends JsonResource
             ? url('/api/documents/' . $this->id . '/download')
             : ($this->preview_url ?? null);
 
+        $previewUrl = $this->file_path 
+            ? url('/api/documents/' . $this->id . '/file')
+            : ($this->preview_url ?? null);
+
+        $thumbnailUrl = $this->file_path 
+            ? url('/api/documents/' . $this->id . '/file')
+            : ($this->thumbnail_url ?? null);
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -47,8 +55,8 @@ class DocumentResource extends JsonResource
             'tags' => $this->tags ?? ($this->type === 'image' ? ['Site Photo'] : ['Field Document']),
             'offlineCached' => (bool) $this->offline_cached,
             'offlineCachedAt' => $this->offline_cached_at?->toIso8601String(),
-            'previewUrl' => $this->preview_url,
-            'thumbnailUrl' => $this->thumbnail_url,
+            'previewUrl' => $previewUrl,
+            'thumbnailUrl' => $thumbnailUrl,
             'textContent' => $this->text_content,
             'docxHtml' => $this->docx_html,
             'dataUrl' => $this->data_url,
